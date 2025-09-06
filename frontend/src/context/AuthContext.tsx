@@ -1,4 +1,5 @@
 import React, { useEffect, useState, createContext, useContext } from 'react';
+import { authApi, setAuthToken, usersApi } from '../lib/api';
 interface User {
   id: string;
   displayName: string;
@@ -32,51 +33,89 @@ export const AuthProvider: React.FC<{
   });
   
   useEffect(() => {
-    // Check for saved user in localStorage on mount
+    // Hydrate user and token
     const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
+    const savedToken = localStorage.getItem('auth_token');
+    if (savedToken) setAuthToken(savedToken);
+    if (savedUser) setUser(JSON.parse(savedUser));
+
+    // Try to verify token and refresh user profile
+    (async () => {
+      try {
+        const me = await authApi.me();
+        if (me?.user) {
+          const normalized = normalizeUser(me.user);
+          setUser(normalized);
+          localStorage.setItem('user', JSON.stringify(normalized));
+        }
+      } catch (_) {
+        // invalid token -> clear
+        setUser(null);
+        setAuthToken(null);
+        localStorage.removeItem('user');
+      }
+    })();
   }, []);
   const login = async (email: string, password: string) => {
-    // This would normally call an API, but for demo we'll use dummy data
-    const mockUser = {
-      id: '123',
-      displayName: 'Eco User',
-      email,
-      profileImage: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-1.2.1&auto=format&fit=crop&w=250&q=80'
-    };
-    setUser(mockUser);
-    localStorage.setItem('user', JSON.stringify(mockUser));
+    const res = await authApi.login(email, password);
+    setAuthToken(res.token);
+    const normalized = normalizeUser(res.user);
+    setUser(normalized);
+    localStorage.setItem('user', JSON.stringify(normalized));
   };
   const signup = async (displayName: string, email: string, password: string) => {
-    // This would normally call an API, but for demo we'll use dummy data
-    const mockUser = {
-      id: '123',
-      displayName,
-      email,
-      profileImage: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-1.2.1&auto=format&fit=crop&w=250&q=80'
-    };
-    setUser(mockUser);
-    localStorage.setItem('user', JSON.stringify(mockUser));
+    const res = await authApi.register(displayName, email, password);
+    setAuthToken(res.token);
+    const normalized = normalizeUser(res.user);
+    setUser(normalized);
+    localStorage.setItem('user', JSON.stringify(normalized));
   };
   const logout = () => {
     setUser(null);
     localStorage.removeItem('user');
     localStorage.removeItem('cart');
     localStorage.removeItem('wishlist');
+    setAuthToken(null);
     
     // Dispatch custom event to notify other contexts
     window.dispatchEvent(new CustomEvent('userLogout'));
   };
 
-  const updateProfile = (profileData: Partial<User>) => {
-    if (user) {
-      const updatedUser = { ...user, ...profileData };
+  const updateProfile = async (profileData: Partial<User>) => {
+    if (!user) return;
+    // Persist changes
+    const payload: any = {};
+    if (profileData.displayName !== undefined) payload.displayName = profileData.displayName;
+    if (profileData.email !== undefined) payload.email = profileData.email;
+    try {
+      if (Object.keys(payload).length) {
+        const res = await usersApi.updateProfile(payload);
+        const normalized = normalizeUser(res.user);
+        setUser(normalized);
+        localStorage.setItem('user', JSON.stringify(normalized));
+      } else {
+        // Local-only changes like profileImage are ignored here
+        const updatedUser = { ...user, ...profileData } as User;
+        setUser(updatedUser);
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+      }
+    } catch (e) {
+      // fallback: local update
+      const updatedUser = { ...user, ...profileData } as User;
       setUser(updatedUser);
       localStorage.setItem('user', JSON.stringify(updatedUser));
+      throw e;
     }
   };
+
+  function normalizeUser(u: any): User {
+    return {
+      id: String(u.id),
+      displayName: u.display_name || u.displayName || '',
+      email: u.email,
+      profileImage: u.profile_image || u.profileImage || ''
+    };
+  }
   return <AuthContext.Provider value={{
     user,
     login,

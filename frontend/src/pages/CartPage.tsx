@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { useCart } from '../context/CartContext';
+import { purchasesApi, getFullImageUrl } from '../lib/api';
 import Button from '../components/ui/Button';
 import { TrashIcon, MinusIcon, PlusIcon, CheckIcon, XIcon } from 'lucide-react';
 const CartPage: React.FC = () => {
@@ -19,25 +20,40 @@ const CartPage: React.FC = () => {
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCheckoutComplete, setIsCheckoutComplete] = useState(false);
-  const handleQuantityChange = (productId: string, newQuantity: number) => {
-    updateQuantity(productId, newQuantity);
+  const [updatingItems, setUpdatingItems] = useState<Set<string>>(new Set());
+  const handleQuantityChange = async (productId: string, newQuantity: number) => {
+    try {
+      console.log('CartPage: Changing quantity for product', productId, 'to', newQuantity);
+      setUpdatingItems(prev => new Set(prev).add(productId));
+      await updateQuantity(productId, newQuantity);
+    } catch (error) {
+      console.error('Error in handleQuantityChange:', error);
+    } finally {
+      setUpdatingItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(productId);
+        return newSet;
+      });
+    }
   };
   const handleCheckout = () => {
     setShowCheckoutModal(true);
   };
-  const processCheckout = () => {
+  const processCheckout = async () => {
     setIsProcessing(true);
-    // Simulate checkout process
-    setTimeout(() => {
-      setIsProcessing(false);
+    try {
+      await purchasesApi.checkout();
       setIsCheckoutComplete(true);
-      clearCart();
-      // Redirect to purchases after successful checkout
+      await clearCart();
       setTimeout(() => {
         setShowCheckoutModal(false);
         navigate('/purchases');
-      }, 3000);
-    }, 2000);
+      }, 1500);
+    } catch (e) {
+      setIsProcessing(false);
+      setIsCheckoutComplete(false);
+      alert('Checkout failed. Please try again.');
+    }
   };
   return <div className={`${theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -59,7 +75,7 @@ const CartPage: React.FC = () => {
                       <div className="flex flex-col sm:flex-row">
                         {/* Product Image */}
                         <div className="flex-shrink-0 mb-4 sm:mb-0">
-                          <img src={item.product.imageUrl} alt={item.product.title} className="w-full sm:w-24 h-24 rounded-md object-cover" />
+                          <img src={getFullImageUrl(item.product.imageUrl)} alt={item.product.title} className="w-full sm:w-24 h-24 rounded-md object-cover" />
                         </div>
                         {/* Product Info */}
                         <div className="flex-1 sm:ml-6">
@@ -90,11 +106,27 @@ const CartPage: React.FC = () => {
                           {/* Quantity and Remove */}
                           <div className="mt-4 flex justify-between items-center">
                             <div className="flex items-center border rounded-md">
-                              <button type="button" className={`p-2 ${item.quantity <= 1 ? 'opacity-50 cursor-not-allowed' : ''}`} onClick={() => handleQuantityChange(item.product.id, item.quantity - 1)} disabled={item.quantity <= 1}>
+                              <button 
+                                type="button" 
+                                className={`p-2 hover:bg-gray-100 dark:hover:bg-gray-700 ${item.quantity <= 1 ? 'opacity-50 cursor-not-allowed' : ''} ${updatingItems.has(item.product.id) ? 'opacity-50' : ''}`} 
+                                onClick={() => handleQuantityChange(item.product.id, item.quantity - 1)} 
+                                disabled={item.quantity <= 1 || updatingItems.has(item.product.id)}
+                              >
                                 <MinusIcon className="h-4 w-4" />
                               </button>
-                              <span className="px-4">{item.quantity}</span>
-                              <button type="button" className="p-2" onClick={() => handleQuantityChange(item.product.id, item.quantity + 1)}>
+                              <span className="px-4 min-w-[3rem] text-center">
+                                {updatingItems.has(item.product.id) ? (
+                                  <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-green-500 mx-auto"></div>
+                                ) : (
+                                  item.quantity
+                                )}
+                              </span>
+                              <button 
+                                type="button" 
+                                className={`p-2 hover:bg-gray-100 dark:hover:bg-gray-700 ${updatingItems.has(item.product.id) ? 'opacity-50' : ''}`} 
+                                onClick={() => handleQuantityChange(item.product.id, item.quantity + 1)}
+                                disabled={updatingItems.has(item.product.id)}
+                              >
                                 <PlusIcon className="h-4 w-4" />
                               </button>
                             </div>

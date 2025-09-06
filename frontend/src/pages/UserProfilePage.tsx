@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
@@ -7,7 +7,7 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Textarea from '../components/ui/Textarea';
 import { User, ShoppingBag, Package, Heart, Edit3, Camera, CalendarIcon, EyeIcon, PencilIcon, TrashIcon, XIcon, SaveIcon } from 'lucide-react';
-import { purchases } from '../data/dummyData';
+import { usersApi, purchasesApi, getFullImageUrl } from '../lib/api';
 
 const UserProfilePage: React.FC = () => {
   const { theme } = useTheme();
@@ -27,6 +27,64 @@ const UserProfilePage: React.FC = () => {
     profileImage: ''
   });
 
+  const [stats, setStats] = useState<{ totalPurchases: number; totalListings: number; wishlistItems: number; rating: number }>({ totalPurchases: 0, totalListings: 0, wishlistItems: 0, rating: 4.8 });
+  const [purchases, setPurchases] = useState<any[]>([]);
+  const [isLoadingPurchases, setIsLoadingPurchases] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await usersApi.stats();
+        const s = res.stats;
+        setStats({
+          totalPurchases: s.purchases?.totalOrders ?? 0,
+          totalListings: s.products?.total ?? listings.length,
+          wishlistItems: s.wishlist?.totalItems ?? 0,
+          rating: 4.8
+        });
+      } catch (_) {
+        setStats(prev => ({ ...prev, totalListings: listings.length }));
+      }
+    })();
+  }, [listings.length]);
+
+  const fetchPurchases = async () => {
+    setIsLoadingPurchases(true);
+    try {
+      const res = await purchasesApi.history();
+      // Flatten the orders to get individual purchase items
+      const flatPurchases = res.orders.flatMap((order: any) => 
+        order.items.map((item: any) => ({
+          id: `${order.id}_${item.id}`,
+          product: {
+            id: item.product.id,
+            title: item.product.title,
+            imageUrl: item.product.imageUrl,
+            category: item.product.category,
+            condition: item.product.condition,
+            price: item.priceAtPurchase,
+            seller: item.product.seller
+          },
+          purchaseDate: order.createdAt,
+          quantity: item.quantity,
+          price: item.priceAtPurchase,
+        }))
+      );
+      setPurchases(flatPurchases);
+    } catch (error) {
+      console.error('Failed to fetch purchases:', error);
+      setPurchases([]);
+    } finally {
+      setIsLoadingPurchases(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'purchases') {
+      fetchPurchases();
+    }
+  }, [activeTab]);
+
   // Use actual user data from auth context, with fallback for demo
   const userData = user ? {
     id: user.id,
@@ -35,10 +93,10 @@ const UserProfilePage: React.FC = () => {
     joinDate: 'January 2024',
     profileImage: user.profileImage,
     stats: {
-      totalPurchases: 12,
-      totalListings: listings.length,
-      wishlistItems: 15,
-      rating: 4.8
+      totalPurchases: stats.totalPurchases,
+      totalListings: stats.totalListings,
+      wishlistItems: stats.wishlistItems,
+      rating: stats.rating
     }
   } : {
     id: '1',
@@ -125,12 +183,19 @@ const UserProfilePage: React.FC = () => {
     }));
   };
 
-  const handleSaveProfile = () => {
-    updateProfile({
+  const handleSaveProfile = async () => {
+    await updateProfile({
       displayName: formData.displayName,
       email: formData.email,
       profileImage: formData.profileImage
     });
+    if (imageFile) {
+      try {
+        await usersApi.uploadProfileImage(imageFile);
+      } catch (e) {
+        console.error('Profile image upload failed', e);
+      }
+    }
     setEditModalOpen(false);
   };
 
@@ -320,7 +385,11 @@ const UserProfilePage: React.FC = () => {
                   View All Purchases
                 </Button>
               </div>
-              {purchases.length > 0 ? (
+              {isLoadingPurchases ? (
+                <div className="flex justify-center items-center py-16">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
+                </div>
+              ) : purchases.length > 0 ? (
                 <div className="space-y-4">
                   {purchases.slice(0, 3).map((purchase) => (
                     <div key={purchase.id} className={`border rounded-lg p-4 ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200'}`}>
@@ -328,7 +397,7 @@ const UserProfilePage: React.FC = () => {
                         {/* Product Image */}
                         <div className="flex-shrink-0 mb-4 md:mb-0">
                           <img 
-                            src={purchase.product.imageUrl} 
+                            src={getFullImageUrl(purchase.product.imageUrl)} 
                             alt={purchase.product.title} 
                             className="w-full md:w-24 h-24 rounded-md object-cover" 
                           />
@@ -354,7 +423,7 @@ const UserProfilePage: React.FC = () => {
                             </div>
                             <div className="mt-2 md:mt-0 md:text-right">
                               <p className="text-lg font-medium text-gray-900 dark:text-white">
-                                ₹{purchase.product.price.toFixed(2)}
+                                ₹{purchase.price.toFixed(2)}
                               </p>
                               <p className="text-sm text-gray-500 dark:text-gray-400">
                                 Quantity: {purchase.quantity}
@@ -424,7 +493,7 @@ const UserProfilePage: React.FC = () => {
                         {/* Product Image */}
                         <div className="flex-shrink-0 mb-4 md:mb-0">
                           <img 
-                            src={listing.imageUrl} 
+                            src={getFullImageUrl(listing.imageUrl)} 
                             alt={listing.title} 
                             className="w-full md:w-24 h-24 rounded-md object-cover" 
                           />

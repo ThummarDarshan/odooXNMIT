@@ -1,64 +1,56 @@
 import React, { useEffect, useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import ProductCard from '../components/ui/ProductCard';
-import { products, categories, conditions, sortOptions } from '../data/dummyData';
+import { categories as dummyCategories, conditions, sortOptions } from '../data/dummyData';
 import { Product } from '../data/types';
 import Select from '../components/ui/Select';
 import { FilterIcon, SlidersIcon, SearchIcon } from 'lucide-react';
+import { productsApi } from '../lib/api';
+
 const HomePage: React.FC = () => {
   const {
     theme
   } = useTheme();
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>(products);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('All Categories');
   const [selectedCondition, setSelectedCondition] = useState('All Conditions');
   const [sortOption, setSortOption] = useState('newest');
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [allCategories, setAllCategories] = useState<string[]>(dummyCategories);
+
   useEffect(() => {
-    let filtered = [...products];
-    
-    // Apply search filter
-    if (searchQuery.trim()) {
-      filtered = filtered.filter(product => 
-        product.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.brand?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.material?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-    
-    // Apply category filter
-    if (selectedCategory !== 'All Categories') {
-      filtered = filtered.filter(product => product.category === selectedCategory);
-    }
-    // Apply condition filter
-    if (selectedCondition !== 'All Conditions') {
-      filtered = filtered.filter(product => product.condition === selectedCondition);
-    }
-    // Apply sorting
-    switch (sortOption) {
-      case 'newest':
-        // In a real app, we would sort by date
-        break;
-      case 'oldest':
-        // In a real app, we would sort by date
-        filtered = [...filtered].reverse();
-        break;
-      case 'price-low':
-        filtered = [...filtered].sort((a, b) => a.price - b.price);
-        break;
-      case 'price-high':
-        filtered = [...filtered].sort((a, b) => b.price - a.price);
-        break;
-      case 'sustainability':
-        filtered = [...filtered].sort((a, b) => (b.sustainabilityScore || 0) - (a.sustainabilityScore || 0));
-        break;
-      default:
-        break;
-    }
-    setFilteredProducts(filtered);
+    (async () => {
+      try {
+        const res = await productsApi.categories();
+        const names = ['All Categories', ...res.categories.map(c => c.name)];
+        setAllCategories(names);
+      } catch (_) {
+        setAllCategories(dummyCategories);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      try {
+        const res = await productsApi.list({
+          category: selectedCategory !== 'All Categories' ? selectedCategory : undefined,
+          condition: selectedCondition !== 'All Conditions' ? selectedCondition : undefined,
+          search: searchQuery || undefined,
+          sortBy: sortOption
+        });
+        if (!cancelled) {
+          setFilteredProducts(res.products.map(normalizeProduct));
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, [selectedCategory, selectedCondition, sortOption, searchQuery]);
   return <div className={`${theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
       {/* Hero Banner */}
@@ -101,7 +93,7 @@ const HomePage: React.FC = () => {
             </div>
           </div>
           <div className="flex items-end space-x-4">
-            <Select id="category" label="Category" options={categories} value={selectedCategory} onChange={setSelectedCategory} className="w-40" />
+            <Select id="category" label="Category" options={allCategories} value={selectedCategory} onChange={setSelectedCategory} className="w-40" />
             <Select id="condition" label="Condition" options={conditions} value={selectedCondition} onChange={setSelectedCondition} className="w-40" />
             <Select id="sort" label="Sort By" options={sortOptions} value={sortOption} onChange={setSortOption} className="w-48" />
           </div>
@@ -130,7 +122,7 @@ const HomePage: React.FC = () => {
                     <SearchIcon className="h-5 w-5 text-gray-500" />
                   </button>
                 </div>
-                <Select id="mobile-category" label="Category" options={categories} value={selectedCategory} onChange={setSelectedCategory} fullWidth />
+                <Select id="mobile-category" label="Category" options={allCategories} value={selectedCategory} onChange={setSelectedCategory} fullWidth />
                 <Select id="mobile-condition" label="Condition" options={conditions} value={selectedCondition} onChange={setSelectedCondition} fullWidth />
                 <Select id="mobile-sort" label="Sort By" options={sortOptions} value={sortOption} onChange={setSortOption} fullWidth />
               </div>
@@ -138,7 +130,11 @@ const HomePage: React.FC = () => {
         </div>
 
         {/* Products Grid */}
-        {filteredProducts.length > 0 ? (
+        {isLoading ? (
+          <div className="flex justify-center items-center h-48">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
+          </div>
+        ) : filteredProducts.length > 0 ? (
           <div>
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-semibold">
@@ -164,3 +160,26 @@ const HomePage: React.FC = () => {
     </div>;
 };
 export default HomePage;
+
+function normalizeProduct(p: any): Product {
+  return {
+    id: String(p.id),
+    title: p.title,
+    description: p.description,
+    price: Number(p.price),
+    category: p.category,
+    condition: p.condition,
+    imageUrl: p.imageUrl,
+    seller: p.seller || { id: '', name: '', rating: 4.5, isVerified: false },
+    year: p.year,
+    brand: p.brand,
+    dimensions: p.dimensions,
+    weight: p.weight,
+    material: p.material,
+    hasWarranty: p.hasWarranty,
+    hasManual: p.hasManual,
+    quantity: Number(p.quantity || 1),
+    isEcoFriendly: p.isEcoFriendly,
+    sustainabilityScore: p.sustainabilityScore,
+  } as Product;
+}

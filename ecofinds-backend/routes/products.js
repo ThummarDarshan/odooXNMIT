@@ -315,9 +315,21 @@ router.post('/', authenticateToken, upload.array('images', 5), [
   body('dimensions').optional().trim().isLength({ max: 100 }),
   body('weight').optional().trim().isLength({ max: 50 }),
   body('material').optional().trim().isLength({ max: 100 }),
-  body('hasWarranty').optional().isBoolean(),
-  body('hasManual').optional().isBoolean(),
-  body('isEcoFriendly').optional().isBoolean(),
+  body('hasWarranty').optional().custom((value) => {
+    if (typeof value === 'boolean') return true;
+    if (value === 'true' || value === 'false') return true;
+    throw new Error('hasWarranty must be a boolean');
+  }),
+  body('hasManual').optional().custom((value) => {
+    if (typeof value === 'boolean') return true;
+    if (value === 'true' || value === 'false') return true;
+    throw new Error('hasManual must be a boolean');
+  }),
+  body('isEcoFriendly').optional().custom((value) => {
+    if (typeof value === 'boolean') return true;
+    if (value === 'true' || value === 'false') return true;
+    throw new Error('isEcoFriendly must be a boolean');
+  }),
   body('sustainabilityScore').optional().isInt({ min: 1, max: 100 })
 ], async (req, res) => {
   try {
@@ -336,6 +348,11 @@ router.post('/', authenticateToken, upload.array('images', 5), [
       hasWarranty = false, hasManual = false, isEcoFriendly = false,
       sustainabilityScore
     } = req.body;
+
+    // Convert string booleans to actual booleans
+    const hasWarrantyBool = hasWarranty === 'true' || hasWarranty === true;
+    const hasManualBool = hasManual === 'true' || hasManual === true;
+    const isEcoFriendlyBool = isEcoFriendly === 'true' || isEcoFriendly === true;
 
     // Verify category exists
     const [categories] = await db.execute('SELECT id FROM categories WHERE id = ?', [categoryId]);
@@ -356,24 +373,21 @@ router.post('/', authenticateToken, upload.array('images', 5), [
     `, [
       title, description, price, categoryId, condition, req.user.id,
       year || null, brand || null, dimensions || null, weight || null, material || null,
-      hasWarranty, hasManual, quantity, isEcoFriendly, sustainabilityScore || null
+      hasWarrantyBool, hasManualBool, quantity, isEcoFriendlyBool, sustainabilityScore || null
     ]);
 
     const productId = result.insertId;
 
     // Handle image uploads
     if (req.files && req.files.length > 0) {
-      const imageInserts = req.files.map((file, index) => [
-        productId,
-        `/uploads/products/${file.filename}`,
-        index === 0, // First image is primary
-        index
-      ]);
-
-      await db.execute(
-        'INSERT INTO product_images (product_id, image_url, is_primary, display_order) VALUES ?',
-        [imageInserts]
-      );
+      // Insert images one by one to avoid SQL syntax issues
+      for (let i = 0; i < req.files.length; i++) {
+        const file = req.files[i];
+        await db.execute(
+          'INSERT INTO product_images (product_id, image_url, is_primary, display_order) VALUES (?, ?, ?, ?)',
+          [productId, `/uploads/products/${file.filename}`, i === 0, i]
+        );
+      }
 
       // Set primary image on product
       await db.execute(
@@ -535,9 +549,21 @@ router.put('/:id', authenticateToken, upload.array('images', 5), [
   body('dimensions').optional().trim().isLength({ max: 100 }),
   body('weight').optional().trim().isLength({ max: 50 }),
   body('material').optional().trim().isLength({ max: 100 }),
-  body('hasWarranty').optional().isBoolean(),
-  body('hasManual').optional().isBoolean(),
-  body('isEcoFriendly').optional().isBoolean(),
+  body('hasWarranty').optional().custom((value) => {
+    if (typeof value === 'boolean') return true;
+    if (value === 'true' || value === 'false') return true;
+    throw new Error('hasWarranty must be a boolean');
+  }),
+  body('hasManual').optional().custom((value) => {
+    if (typeof value === 'boolean') return true;
+    if (value === 'true' || value === 'false') return true;
+    throw new Error('hasManual must be a boolean');
+  }),
+  body('isEcoFriendly').optional().custom((value) => {
+    if (typeof value === 'boolean') return true;
+    if (value === 'true' || value === 'false') return true;
+    throw new Error('isEcoFriendly must be a boolean');
+  }),
   body('sustainabilityScore').optional().isInt({ min: 1, max: 100 })
 ], async (req, res) => {
   try {
@@ -586,7 +612,14 @@ router.put('/:id', authenticateToken, upload.array('images', 5), [
     Object.keys(req.body).forEach(key => {
       const dbField = fieldMapping[key] || key;
       if (allowedFields.includes(dbField) && req.body[key] !== undefined) {
-        updates[dbField] = req.body[key];
+        let value = req.body[key];
+        
+        // Convert string booleans to actual booleans for boolean fields
+        if (['has_warranty', 'has_manual', 'is_eco_friendly'].includes(dbField)) {
+          value = value === 'true' || value === true;
+        }
+        
+        updates[dbField] = value;
       }
     });
 
@@ -610,17 +643,14 @@ router.put('/:id', authenticateToken, upload.array('images', 5), [
 
       const startOrder = currentImages[0].count;
 
-      const imageInserts = req.files.map((file, index) => [
-        productId,
-        `/uploads/products/${file.filename}`,
-        startOrder === 0 && index === 0, // First image is primary if no existing images
-        startOrder + index
-      ]);
-
-      await db.execute(
-        'INSERT INTO product_images (product_id, image_url, is_primary, display_order) VALUES ?',
-        [imageInserts]
-      );
+      // Insert images one by one to avoid SQL syntax issues
+      for (let i = 0; i < req.files.length; i++) {
+        const file = req.files[i];
+        await db.execute(
+          'INSERT INTO product_images (product_id, image_url, is_primary, display_order) VALUES (?, ?, ?, ?)',
+          [productId, `/uploads/products/${file.filename}`, startOrder === 0 && i === 0, startOrder + i]
+        );
+      }
 
       // Update primary image if this is the first image
       if (startOrder === 0) {

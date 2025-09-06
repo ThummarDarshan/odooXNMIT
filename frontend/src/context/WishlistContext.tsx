@@ -1,10 +1,13 @@
 import React, { useEffect, useState, createContext, useContext } from 'react';
 import { Product } from '../data/types';
+import { productsApi } from '../lib/api';
+import { useAuth } from './AuthContext';
 
 interface WishlistContextType {
   items: Product[];
-  addToWishlist: (product: Product) => void;
-  removeFromWishlist: (productId: string) => void;
+  loadWishlist: () => Promise<void>;
+  addToWishlist: (product: Product) => Promise<void>;
+  removeFromWishlist: (productId: string) => Promise<void>;
   isInWishlist: (productId: string) => boolean;
   clearWishlist: () => void;
   totalItems: number;
@@ -16,39 +19,38 @@ export const WishlistProvider: React.FC<{
   children: React.ReactNode;
 }> = ({ children }) => {
   const [items, setItems] = useState<Product[]>([]);
+  const { isAuthenticated } = useAuth();
 
   useEffect(() => {
-    // Load wishlist from localStorage if available
-    const savedWishlist = localStorage.getItem('wishlist');
-    if (savedWishlist) {
-      setItems(JSON.parse(savedWishlist));
+    if (isAuthenticated) {
+      void loadWishlist();
+    } else {
+      setItems([]);
     }
 
-    // Listen for logout event
-    const handleLogout = () => {
-      setItems([]);
-    };
-
+    const handleLogout = () => setItems([]);
     window.addEventListener('userLogout', handleLogout);
     return () => window.removeEventListener('userLogout', handleLogout);
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
-    // Save wishlist to localStorage whenever it changes
+    // Save wishlist to localStorage whenever it changes (local mirror)
     localStorage.setItem('wishlist', JSON.stringify(items));
   }, [items]);
 
-  const addToWishlist = (product: Product) => {
-    setItems(prevItems => {
-      if (prevItems.find(item => item.id === product.id)) {
-        return prevItems; // Already in wishlist
-      }
-      return [...prevItems, product];
-    });
+  const loadWishlist = async () => {
+    const res = await productsApi.wishlist();
+    setItems(res.products.map(normalizeProduct));
   };
 
-  const removeFromWishlist = (productId: string) => {
-    setItems(prevItems => prevItems.filter(item => item.id !== productId));
+  const addToWishlist = async (product: Product) => {
+    await productsApi.addToWishlist(product.id);
+    await loadWishlist();
+  };
+
+  const removeFromWishlist = async (productId: string) => {
+    await productsApi.removeFromWishlist(productId);
+    await loadWishlist();
   };
 
   const isInWishlist = (productId: string) => {
@@ -66,6 +68,7 @@ export const WishlistProvider: React.FC<{
     <WishlistContext.Provider
       value={{
         items,
+        loadWishlist,
         addToWishlist,
         removeFromWishlist,
         isInWishlist,
@@ -85,3 +88,17 @@ export const useWishlist = (): WishlistContextType => {
   }
   return context;
 };
+
+function normalizeProduct(p: any): Product {
+  return {
+    id: String(p.id),
+    title: p.title,
+    description: p.description,
+    price: Number(p.price),
+    category: p.category,
+    condition: p.condition,
+    imageUrl: p.imageUrl,
+    seller: p.seller || { id: '', name: '', rating: 4.5, isVerified: false },
+    quantity: Number(p.quantity || 1),
+  } as Product;
+}

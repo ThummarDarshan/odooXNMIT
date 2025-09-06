@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
-import { purchases } from '../data/dummyData';
 import Select from '../components/ui/Select';
 import Button from '../components/ui/Button';
 import { CalendarIcon, FilterIcon, SlidersIcon } from 'lucide-react';
+import { purchasesApi, getFullImageUrl } from '../lib/api';
+import { Product } from '../data/types';
 const PreviousPurchasesPage: React.FC = () => {
   const {
     theme
@@ -16,7 +17,27 @@ const PreviousPurchasesPage: React.FC = () => {
   const [categoryFilter, setCategoryFilter] = useState('All Categories');
   const [sortOption, setSortOption] = useState('newest');
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
-  const categories = ['All Categories', ...Array.from(new Set(purchases.map(p => p.product.category)))];
+  const [orders, setOrders] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [categories, setCategories] = useState<string[]>(['All Categories']);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      try {
+        const res = await purchasesApi.history();
+        if (!cancelled) {
+          setOrders(res.orders);
+          const cats = Array.from(new Set(res.orders.flatMap((o: any) => o.items.map((i: any) => i.product.category))));
+          setCategories(['All Categories', ...cats]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
   const sortOptions = [{
     value: 'newest',
     label: 'Newest First'
@@ -31,14 +52,22 @@ const PreviousPurchasesPage: React.FC = () => {
     label: 'Price: High to Low'
   }];
   // Filter and sort purchases
-  const filteredPurchases = purchases.filter(purchase => categoryFilter === 'All Categories' || purchase.product.category === categoryFilter).sort((a, b) => {
+  const flatPurchases = orders.flatMap(order => order.items.map((item: any) => ({
+    id: `${order.id}_${item.id}`,
+    product: normalizeProduct(item.product),
+    purchaseDate: order.createdAt,
+    quantity: item.quantity,
+    price: item.priceAtPurchase,
+  })));
+
+  const filteredPurchases = flatPurchases.filter(purchase => categoryFilter === 'All Categories' || purchase.product.category === categoryFilter).sort((a, b) => {
     switch (sortOption) {
       case 'oldest':
         return new Date(a.purchaseDate).getTime() - new Date(b.purchaseDate).getTime();
       case 'price-low':
-        return a.product.price - b.product.price;
+        return a.price - b.price;
       case 'price-high':
-        return b.product.price - a.product.price;
+        return b.price - a.price;
       case 'newest':
       default:
         return new Date(b.purchaseDate).getTime() - new Date(a.purchaseDate).getTime();
@@ -88,13 +117,17 @@ const PreviousPurchasesPage: React.FC = () => {
             </div>}
         </div>
         {/* Purchases List */}
-        {filteredPurchases.length > 0 ? <div className={`rounded-lg overflow-hidden ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-md`}>
+        {isLoading ? (
+          <div className="flex justify-center items-center py-16">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
+          </div>
+        ) : filteredPurchases.length > 0 ? <div className={`rounded-lg overflow-hidden ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-md`}>
             <ul className="divide-y divide-gray-200 dark:divide-gray-700">
               {filteredPurchases.map(purchase => <li key={purchase.id} className="p-6">
                   <div className="flex flex-col md:flex-row">
                     {/* Product Image */}
                     <div className="flex-shrink-0 mb-4 md:mb-0">
-                      <img src={purchase.product.imageUrl} alt={purchase.product.title} className="w-full md:w-32 h-32 rounded-md object-cover" />
+                      <img src={getFullImageUrl(purchase.product.imageUrl)} alt={purchase.product.title} className="w-full md:w-32 h-32 rounded-md object-cover" />
                     </div>
                     {/* Product Info */}
                     <div className="flex-1 md:ml-6">
@@ -115,7 +148,7 @@ const PreviousPurchasesPage: React.FC = () => {
                         </div>
                         <div className="mt-2 md:mt-0 md:text-right">
                           <p className="text-lg font-medium text-green-600">
-                            ${purchase.product.price.toFixed(2)}
+                            ₹{purchase.price.toFixed(2)}
                           </p>
                           <p className="text-sm text-gray-500 dark:text-gray-400">
                             Quantity: {purchase.quantity}
@@ -160,4 +193,28 @@ const PreviousPurchasesPage: React.FC = () => {
       </div>
     </div>;
 };
+
+function normalizeProduct(p: any): Product {
+  return {
+    id: String(p.id),
+    title: p.title,
+    description: p.description,
+    price: Number(p.price),
+    category: p.category,
+    condition: p.condition,
+    imageUrl: p.imageUrl,
+    seller: p.seller || { id: '', name: '', rating: 4.5, isVerified: false },
+    year: p.year,
+    brand: p.brand,
+    dimensions: p.dimensions,
+    weight: p.weight,
+    material: p.material,
+    hasWarranty: p.hasWarranty,
+    warrantyPeriod: p.warrantyPeriod,
+    isAvailable: p.isAvailable,
+    createdAt: p.createdAt,
+    updatedAt: p.updatedAt,
+  };
+}
+
 export default PreviousPurchasesPage;

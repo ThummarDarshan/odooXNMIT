@@ -6,6 +6,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useCart } from '../../context/CartContext';
 import { useWishlist } from '../../context/WishlistContext';
 import { useAuth } from '../../context/AuthContext';
+import { getFullImageUrl } from '../../lib/api';
 interface ProductCardProps {
   product: Product;
 }
@@ -87,7 +88,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
   return <div className={`rounded-lg overflow-hidden shadow-md transition-all duration-300 ${isHovered ? 'shadow-lg transform -translate-y-1' : ''} ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'}`} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)} onClick={navigateToProduct}>
       <div className="relative">
         <img 
-          src={imageError ? getFallbackImage() : product.imageUrl} 
+          src={imageError ? getFallbackImage() : getFullImageUrl(product.imageUrl)} 
           alt={product.title} 
           className="w-full h-48 object-cover" 
           onError={handleImageError}

@@ -2,14 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
-import { useListings } from '../context/ListingsContext';
 import Input from '../components/ui/Input';
 import Select from '../components/ui/Select';
 import Textarea from '../components/ui/Textarea';
 import Checkbox from '../components/ui/Checkbox';
 import Button from '../components/ui/Button';
 import { UploadIcon, XIcon, CheckIcon } from 'lucide-react';
-import { categories } from '../data/dummyData';
+import { categories as dummyCategories } from '../data/dummyData';
+import { productsApi } from '../lib/api';
 interface FormData {
   title: string;
   category: string;
@@ -29,8 +29,7 @@ interface FormData {
 }
 const AddProductPage: React.FC = () => {
   const { theme } = useTheme();
-  const { isAuthenticated, user } = useAuth();
-  const { addListing } = useListings();
+  const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [formData, setFormData] = useState<FormData>({
     title: '',
@@ -54,6 +53,8 @@ const AddProductPage: React.FC = () => {
   const [showSuccess, setShowSuccess] = useState(false);
   const [formProgress, setFormProgress] = useState(0);
   const conditions = ['New', 'Like New', 'Used'];
+  const [categoryOptions, setCategoryOptions] = useState<string[]>(dummyCategories.filter(c => c !== 'All Categories'));
+  const [categoryMap, setCategoryMap] = useState<Record<string, number>>({});
 
   // Calculate form progress
   const calculateProgress = () => {
@@ -69,6 +70,21 @@ const AddProductPage: React.FC = () => {
   useEffect(() => {
     setFormProgress(calculateProgress());
   }, [formData]);
+
+  // Load categories from backend
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await productsApi.categories();
+        setCategoryOptions(res.categories.map(c => c.name));
+        const map: Record<string, number> = {};
+        res.categories.forEach(c => { map[c.name] = c.id; });
+        setCategoryMap(map);
+      } catch (_) {
+        // fallback to dummy categories already set
+      }
+    })();
+  }, []);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -180,43 +196,27 @@ const AddProductPage: React.FC = () => {
     }
     setIsSubmitting(true);
     try {
-      // Create a new product object
-      const newProduct = {
-        id: `product_${Date.now()}`, // Generate unique ID
+      // Submit to backend
+      const categoryEntityId = categoryMap[formData.category];
+      const payload = {
         title: formData.title,
         description: formData.description,
         price: parseFloat(formData.price),
-        category: formData.category,
-        condition: formData.condition,
-        imageUrl: formData.images.length > 0 
-          ? URL.createObjectURL(formData.images[0]) 
-          : 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80', // Default image
-        seller: {
-          id: user?.id || 'current_user',
-          name: user?.name || 'Current User',
-          rating: 4.8,
-          isVerified: true
-        },
+        categoryId: categoryEntityId || 1,
+        condition: formData.condition as any,
+        quantity: parseInt(formData.quantity),
         year: formData.year ? parseInt(formData.year) : undefined,
         brand: formData.brand || undefined,
         dimensions: formData.dimensions || undefined,
         weight: formData.weight || undefined,
         material: formData.material || undefined,
-        hasWarranty: formData.hasWarranty,
-        hasManual: formData.hasManual,
-        quantity: parseInt(formData.quantity),
-        isEcoFriendly: formData.isEcoFriendly,
-        sustainabilityScore: formData.isEcoFriendly ? Math.floor(Math.random() * 20) + 80 : Math.floor(Math.random() * 30) + 60
+        hasWarranty: Boolean(formData.hasWarranty),
+        hasManual: Boolean(formData.hasManual),
+        isEcoFriendly: Boolean(formData.isEcoFriendly),
+        sustainabilityScore: formData.isEcoFriendly ? Math.floor(Math.random() * 20) + 80 : undefined,
+        images: formData.images
       };
-
-      // Add the product to listings
-      addListing(newProduct);
-      
-      console.log('Product added successfully:', newProduct);
-      
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      await productsApi.create(payload);
       setShowSuccess(true);
       setTimeout(() => {
         navigate('/listings');
@@ -284,7 +284,7 @@ const AddProductPage: React.FC = () => {
               <div className="space-y-4">
                 <Input id="title" name="title" label="Product Title*" placeholder="Enter a descriptive title" value={formData.title} onChange={handleChange} error={errors.title} fullWidth required />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Select id="category" name="category" label="Category*" options={categories.filter(cat => cat !== 'All Categories')} value={formData.category} onChange={value => {
+                  <Select id="category" name="category" label="Category*" options={categoryOptions} value={formData.category} onChange={value => {
                 setFormData(prev => ({
                   ...prev,
                   category: value

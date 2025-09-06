@@ -4,11 +4,12 @@ import { useTheme } from '../context/ThemeContext';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useListings } from '../context/ListingsContext';
-import { products } from '../data/dummyData';
 import { Product } from '../data/types';
 import Button from '../components/ui/Button';
 import ProductCard from '../components/ui/ProductCard';
 import { HeartIcon, BadgeCheckIcon, LeafIcon, TruckIcon, ShieldIcon, AlertCircleIcon, ChevronLeftIcon } from 'lucide-react';
+import { productsApi, getFullImageUrl } from '../lib/api';
+
 const ProductDetailPage: React.FC = () => {
   const {
     theme
@@ -28,43 +29,41 @@ const ProductDetailPage: React.FC = () => {
     isInWishlist
   } = useWishlist();
   const {
-    getListingById,
     listings
   } = useListings();
   const [product, setProduct] = useState<Product | null>(null);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+
   useEffect(() => {
-    // First try to find the product in the main products array
-    let foundProduct = products.find(p => p.id === id);
-    
-    // If not found in main products, check user listings
-    if (!foundProduct) {
-      foundProduct = getListingById(id || '');
-    }
-    
-    if (foundProduct) {
-      setProduct(foundProduct);
-      // Find related products (same category, excluding current product)
-      // Check both main products and listings for related products
-      const allProducts = [...products, ...listings];
-      const related = allProducts.filter(p => p.category === foundProduct.category && p.id !== foundProduct.id).slice(0, 4);
-      setRelatedProducts(related);
-    } else {
-      // Product not found
-      navigate('/');
-    }
-  }, [id, navigate, getListingById, listings]);
+    let cancelled = false;
+    (async () => {
+      if (!id) return;
+      try {
+        const res = await productsApi.get(id);
+        if (!cancelled) setProduct(normalizeProduct(res.product));
+        const list = await productsApi.list({ category: res.product.category });
+        const related = list.products
+          .filter((p: any) => String(p.id) !== String(id))
+          .slice(0, 4)
+          .map(normalizeProduct);
+        if (!cancelled) setRelatedProducts(related);
+      } catch (_) {
+        navigate('/');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [id, navigate]);
   const handleAddToCart = () => {
     if (product) {
-      addToCart(product);
+      void addToCart(product);
     }
   };
   const handleToggleWishlist = () => {
     if (product) {
       if (isInWishlist(product.id)) {
-        removeFromWishlist(product.id);
+        void removeFromWishlist(product.id);
       } else {
-        addToWishlist(product);
+        void addToWishlist(product);
       }
     }
   };
@@ -83,7 +82,7 @@ const ProductDetailPage: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* Product Image */}
           <div className={`rounded-lg overflow-hidden shadow-md ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'}`}>
-            <img src={product.imageUrl} alt={product.title} className="w-full h-auto object-cover" />
+            <img src={getFullImageUrl(product.imageUrl)} alt={product.title} className="w-full h-auto object-cover" />
             {/* Eco Badge */}
             {product.isEcoFriendly && <div className="p-4 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 flex items-center">
                 <LeafIcon className="h-5 w-5 mr-2" />
@@ -254,3 +253,26 @@ const ProductDetailPage: React.FC = () => {
     </div>;
 };
 export default ProductDetailPage;
+
+function normalizeProduct(p: any): Product {
+  return {
+    id: String(p.id),
+    title: p.title,
+    description: p.description,
+    price: Number(p.price),
+    category: p.category,
+    condition: p.condition,
+    imageUrl: p.imageUrl,
+    seller: p.seller || { id: '', name: '', rating: 4.5, isVerified: false },
+    year: p.year,
+    brand: p.brand,
+    dimensions: p.dimensions,
+    weight: p.weight,
+    material: p.material,
+    hasWarranty: p.hasWarranty,
+    hasManual: p.hasManual,
+    quantity: Number(p.quantity || 1),
+    isEcoFriendly: p.isEcoFriendly,
+    sustainabilityScore: p.sustainabilityScore,
+  } as Product;
+}

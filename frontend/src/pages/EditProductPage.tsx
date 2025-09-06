@@ -10,6 +10,7 @@ import Checkbox from '../components/ui/Checkbox';
 import Button from '../components/ui/Button';
 import { UploadIcon, XIcon, CheckIcon } from 'lucide-react';
 import { categories } from '../data/dummyData';
+import { productsApi } from '../lib/api';
 
 interface FormData {
   title: string;
@@ -176,23 +177,11 @@ const EditProductPage: React.FC = () => {
     }
     setIsSubmitting(true);
     try {
-      // Get the existing product to preserve some fields
-      const existingProduct = getListingById(id);
-      if (!existingProduct) {
-        throw new Error('Product not found');
-      }
-
-      // Create updated product object
-      const updatedProduct = {
-        ...existingProduct,
+      const payload: any = {
         title: formData.title,
         description: formData.description,
         price: parseFloat(formData.price),
-        category: formData.category,
         condition: formData.condition,
-        imageUrl: formData.images.length > 0 
-          ? URL.createObjectURL(formData.images[0]) 
-          : existingProduct.imageUrl,
         year: formData.year ? parseInt(formData.year) : undefined,
         brand: formData.brand || undefined,
         dimensions: formData.dimensions || undefined,
@@ -203,15 +192,10 @@ const EditProductPage: React.FC = () => {
         quantity: parseInt(formData.quantity),
         isEcoFriendly: formData.isEcoFriendly,
       };
-
-      // Update the product in listings
-      updateListing(id, updatedProduct);
-      
-      console.log('Product updated successfully:', updatedProduct);
-      
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      if (formData.images.length > 0) {
+        (payload as any).images = formData.images;
+      }
+      await productsApi.update(id, payload);
       setShowSuccess(true);
       setTimeout(() => {
         navigate('/listings');

@@ -3,13 +3,14 @@ import { Link } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useListings } from '../context/ListingsContext';
+import { productsApi, getFullImageUrl } from '../lib/api';
 import Button from '../components/ui/Button';
 import { PencilIcon, TrashIcon, EyeIcon, PlusIcon, FilterIcon, SlidersIcon } from 'lucide-react';
 import Select from '../components/ui/Select';
 const MyListingsPage: React.FC = () => {
   const { theme } = useTheme();
   const { isAuthenticated } = useAuth();
-  const { listings, deleteListing } = useListings();
+  const { listings, deleteListing, refreshListings } = useListings();
   const [categoryFilter, setCategoryFilter] = useState('All Categories');
   const [sortOption, setSortOption] = useState('newest');
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
@@ -47,9 +48,10 @@ const MyListingsPage: React.FC = () => {
     setSelectedListing(id);
     setDeleteModalOpen(true);
   };
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (selectedListing) {
-      deleteListing(selectedListing);
+      await deleteListing(selectedListing);
+      await refreshListings();
       console.log('Listing deleted:', selectedListing);
     }
     setDeleteModalOpen(false);
@@ -111,7 +113,7 @@ const MyListingsPage: React.FC = () => {
                   <div className="flex flex-col md:flex-row">
                     {/* Product Image */}
                     <div className="flex-shrink-0 mb-4 md:mb-0">
-                      <img src={listing.imageUrl} alt={listing.title} className="w-full md:w-32 h-32 rounded-md object-cover" />
+                      <img src={getFullImageUrl(listing.imageUrl)} alt={listing.title} className="w-full md:w-32 h-32 rounded-md object-cover" />
                     </div>
                     {/* Product Info */}
                     <div className="flex-1 md:ml-6">
