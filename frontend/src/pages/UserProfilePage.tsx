@@ -1,15 +1,20 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
+import { useListings } from '../context/ListingsContext';
 import Button from '../components/ui/Button';
-import { User, ShoppingBag, Package, Heart, Settings, Edit3, Camera } from 'lucide-react';
+import { User, ShoppingBag, Package, Heart, Settings, Edit3, Camera, CalendarIcon, EyeIcon, PencilIcon, TrashIcon } from 'lucide-react';
+import { purchases } from '../data/dummyData';
 
 const UserProfilePage: React.FC = () => {
   const { theme } = useTheme();
   const { user } = useAuth();
+  const { listings, deleteListing } = useListings();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'overview' | 'purchases' | 'listings'>('overview');
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [selectedListing, setSelectedListing] = useState<string | null>(null);
 
   // Mock user data - in a real app, this would come from the auth context or API
   const userData = {
@@ -23,7 +28,7 @@ const UserProfilePage: React.FC = () => {
     bio: 'Eco-conscious shopper passionate about sustainable living and reducing waste.',
     stats: {
       totalPurchases: 12,
-      totalListings: 8,
+      totalListings: listings.length,
       wishlistItems: 15,
       rating: 4.8
     }
@@ -37,6 +42,24 @@ const UserProfilePage: React.FC = () => {
   const handleChangePhoto = () => {
     // Handle photo change
     console.log('Change photo clicked');
+  };
+
+  const handleDeleteClick = (id: string) => {
+    setSelectedListing(id);
+    setDeleteModalOpen(true);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (selectedListing) {
+      deleteListing(selectedListing);
+      console.log('Listing deleted:', selectedListing);
+    }
+    setDeleteModalOpen(false);
+    setSelectedListing(null);
+  };
+
+  const handleEditClick = (id: string) => {
+    navigate(`/edit-product/${id}`);
   };
 
   return (
@@ -213,16 +236,91 @@ const UserProfilePage: React.FC = () => {
                   View All Purchases
                 </Button>
               </div>
-              <div className="text-center py-12">
-                <ShoppingBag className="h-16 w-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
-                <h3 className="text-lg font-medium mb-2">No purchases yet</h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-6">
-                  Start shopping to see your purchase history here.
-                </p>
-                <Button variant="primary" onClick={() => navigate('/')}>
-                  Start Shopping
-                </Button>
-              </div>
+              {purchases.length > 0 ? (
+                <div className="space-y-4">
+                  {purchases.slice(0, 3).map((purchase) => (
+                    <div key={purchase.id} className={`border rounded-lg p-4 ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200'}`}>
+                      <div className="flex flex-col md:flex-row">
+                        {/* Product Image */}
+                        <div className="flex-shrink-0 mb-4 md:mb-0">
+                          <img 
+                            src={purchase.product.imageUrl} 
+                            alt={purchase.product.title} 
+                            className="w-full md:w-24 h-24 rounded-md object-cover" 
+                          />
+                        </div>
+                        {/* Product Info */}
+                        <div className="flex-1 md:ml-4">
+                          <div className="flex flex-col md:flex-row md:justify-between">
+                            <div>
+                              <h3 className="text-lg font-medium">
+                                <Link 
+                                  to={`/product/${purchase.product.id}`} 
+                                  className="hover:text-green-600 dark:hover:text-green-400"
+                                >
+                                  {purchase.product.title}
+                                </Link>
+                              </h3>
+                              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                {purchase.product.category} • {purchase.product.condition}
+                              </p>
+                              <p className="mt-1 text-sm">
+                                Sold by {purchase.product.seller.name}
+                              </p>
+                            </div>
+                            <div className="mt-2 md:mt-0 md:text-right">
+                              <p className="text-lg font-medium text-green-600 dark:text-green-400">
+                                ${purchase.product.price.toFixed(2)}
+                              </p>
+                              <p className="text-sm text-gray-500 dark:text-gray-400">
+                                Quantity: {purchase.quantity}
+                              </p>
+                              <div className="flex items-center mt-1 text-sm text-gray-500 dark:text-gray-400 md:justify-end">
+                                <CalendarIcon className="h-4 w-4 mr-1" />
+                                <span>
+                                  Purchased on {new Date(purchase.purchaseDate).toLocaleDateString()}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          {/* Actions */}
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            <Link to={`/product/${purchase.product.id}`}>
+                              <Button variant="outline" size="sm">
+                                View Product
+                              </Button>
+                            </Link>
+                            <Button variant="outline" size="sm">
+                              Leave Review
+                            </Button>
+                            <Button variant="outline" size="sm">
+                              Buy Again
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {purchases.length > 3 && (
+                    <div className="text-center pt-4">
+                      <Button variant="outline" onClick={() => navigate('/purchases')}>
+                        View All {purchases.length} Purchases
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <ShoppingBag className="h-16 w-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium mb-2">No purchases yet</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-6">
+                    Start shopping to see your purchase history here.
+                  </p>
+                  <Button variant="primary" onClick={() => navigate('/')}>
+                    Start Shopping
+                  </Button>
+                </div>
+              )}
             </div>
           )}
 
@@ -234,20 +332,137 @@ const UserProfilePage: React.FC = () => {
                   Add New Listing
                 </Button>
               </div>
-              <div className="text-center py-12">
-                <Package className="h-16 w-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
-                <h3 className="text-lg font-medium mb-2">No listings yet</h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-6">
-                  Start selling your items to see your listings here.
-                </p>
-                <Button variant="primary" onClick={() => navigate('/add-product')}>
-                  Create First Listing
-                </Button>
-              </div>
+              {listings.length > 0 ? (
+                <div className="space-y-4">
+                  {listings.slice(0, 3).map((listing) => (
+                    <div key={listing.id} className={`border rounded-lg p-4 ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200'}`}>
+                      <div className="flex flex-col md:flex-row">
+                        {/* Product Image */}
+                        <div className="flex-shrink-0 mb-4 md:mb-0">
+                          <img 
+                            src={listing.imageUrl} 
+                            alt={listing.title} 
+                            className="w-full md:w-24 h-24 rounded-md object-cover" 
+                          />
+                        </div>
+                        {/* Product Info */}
+                        <div className="flex-1 md:ml-4">
+                          <div className="flex flex-col md:flex-row md:justify-between">
+                            <div>
+                              <h3 className="text-lg font-medium">
+                                <Link 
+                                  to={`/product/${listing.id}`} 
+                                  className="hover:text-green-600 dark:hover:text-green-400"
+                                >
+                                  {listing.title}
+                                </Link>
+                              </h3>
+                              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                {listing.category} • {listing.condition}
+                              </p>
+                              <p className="mt-1 text-sm line-clamp-2">
+                                {listing.description}
+                              </p>
+                            </div>
+                            <div className="mt-2 md:mt-0 md:text-right">
+                              <p className="text-lg font-medium text-green-600 dark:text-green-400">
+                                ${listing.price.toFixed(2)}
+                              </p>
+                              <p className="text-sm text-gray-500 dark:text-gray-400">
+                                Quantity: {listing.quantity}
+                              </p>
+                              {listing.isEcoFriendly && (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                                  Eco-Friendly
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          {/* Actions */}
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            <Link to={`/product/${listing.id}`}>
+                              <Button variant="outline" size="sm" className="flex items-center">
+                                <EyeIcon className="h-4 w-4 mr-2" />
+                                View
+                              </Button>
+                            </Link>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="flex items-center"
+                              onClick={() => handleEditClick(listing.id)}
+                            >
+                              <PencilIcon className="h-4 w-4 mr-2" />
+                              Edit
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="flex items-center text-red-600 hover:text-red-700 border-red-200 hover:border-red-300 dark:border-red-800 dark:hover:border-red-700"
+                              onClick={() => handleDeleteClick(listing.id)}
+                            >
+                              <TrashIcon className="h-4 w-4 mr-2" />
+                              Delete
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {listings.length > 3 && (
+                    <div className="text-center pt-4">
+                      <Button variant="outline" onClick={() => navigate('/listings')}>
+                        View All {listings.length} Listings
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <Package className="h-16 w-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium mb-2">No listings yet</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-6">
+                    Start selling your items to see your listings here.
+                  </p>
+                  <Button variant="primary" onClick={() => navigate('/add-product')}>
+                    Create First Listing
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {deleteModalOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4">
+            <div 
+              className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" 
+              onClick={() => setDeleteModalOpen(false)}
+            ></div>
+            <div className={`relative rounded-lg max-w-md w-full ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-xl p-6`}>
+              <h3 className="text-lg font-medium mb-4">Delete Listing</h3>
+              <p className="text-gray-600 dark:text-gray-300 mb-6">
+                Are you sure you want to delete this listing? This action cannot be undone.
+              </p>
+              <div className="flex justify-end space-x-4">
+                <Button variant="outline" onClick={() => setDeleteModalOpen(false)}>
+                  Cancel
+                </Button>
+                <Button 
+                  variant="danger" 
+                  onClick={handleDeleteConfirm}
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                >
+                  Delete
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

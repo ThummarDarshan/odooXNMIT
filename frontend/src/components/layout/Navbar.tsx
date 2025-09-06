@@ -57,31 +57,12 @@ const Navbar: React.FC = () => {
                   {uniqueItems}
                 </span>}
             </Link>
-            {isAuthenticated ? <div className="relative group">
-                <button 
-                  onClick={() => navigate('/profile')}
-                  className="flex items-center hover:opacity-80 transition-opacity"
-                >
-                  <img src={user?.profileImage || 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-1.2.1&auto=format&fit=crop&w=250&q=80'} alt="Profile" className="h-8 w-8 rounded-full object-cover" />
-                </button>
-                <div className={`absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} ring-1 ring-black ring-opacity-5 hidden group-hover:block`}>
-                  <Link to="/profile" className={`block px-4 py-2 text-sm ${theme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}>
-                    Profile
-                  </Link>
-                  <Link to="/listings" className={`block px-4 py-2 text-sm ${theme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}>
-                    My Listings
-                  </Link>
-                  <Link to="/purchases" className={`block px-4 py-2 text-sm ${theme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}>
-                    My Purchases
-                  </Link>
-                  <Link to="/add-product" className={`block px-4 py-2 text-sm ${theme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}>
-                    Add Product
-                  </Link>
-                  <button onClick={logout} className={`block w-full text-left px-4 py-2 text-sm ${theme === 'dark' ? 'hover:bg-gray-700 text-red-400' : 'hover:bg-gray-100 text-red-600'}`}>
-                    Sign Out
-                  </button>
-                </div>
-              </div> : <div className="flex space-x-2">
+            {isAuthenticated ? <button 
+                onClick={() => navigate('/profile')}
+                className="flex items-center hover:opacity-80 transition-opacity"
+              >
+                <img src={user?.profileImage || 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-1.2.1&auto=format&fit=crop&w=250&q=80'} alt="Profile" className="h-8 w-8 rounded-full object-cover" />
+              </button> : <div className="flex space-x-2">
                 <Link to="/login" className={`px-4 py-2 rounded-md text-sm font-medium ${theme === 'dark' ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'}`}>
                   Login
                 </Link>

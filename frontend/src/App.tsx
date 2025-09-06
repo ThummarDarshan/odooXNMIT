@@ -4,6 +4,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import { WishlistProvider } from './context/WishlistContext';
+import { ListingsProvider } from './context/ListingsContext';
 import Layout from './components/layout/Layout';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
@@ -16,12 +17,14 @@ import PreviousPurchasesPage from './pages/PreviousPurchasesPage';
 import MyListingsPage from './pages/MyListingsPage';
 import WishlistPage from './pages/WishlistPage';
 import UserProfilePage from './pages/UserProfilePage';
+import EditProductPage from './pages/EditProductPage';
 export function App() {
   return <ThemeProvider>
       <AuthProvider>
         <CartProvider>
           <WishlistProvider>
-            <BrowserRouter>
+            <ListingsProvider>
+              <BrowserRouter>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/signup" element={<SignUpPage />} />
@@ -29,6 +32,7 @@ export function App() {
                 <Route index element={<HomePage />} />
                 <Route path="product/:id" element={<ProductDetailPage />} />
                 <Route path="add-product" element={<AddProductPage />} />
+                <Route path="edit-product/:id" element={<EditProductPage />} />
                 <Route path="cart" element={<CartPage />} />
                 <Route path="dashboard" element={<UserDashboardPage />} />
                 <Route path="purchases" element={<PreviousPurchasesPage />} />
@@ -37,7 +41,8 @@ export function App() {
                 <Route path="profile" element={<UserProfilePage />} />
               </Route>
             </Routes>
-            </BrowserRouter>
+              </BrowserRouter>
+            </ListingsProvider>
           </WishlistProvider>
         </CartProvider>
       </AuthProvider>

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
+import { useListings } from '../context/ListingsContext';
 import Input from '../components/ui/Input';
 import Select from '../components/ui/Select';
 import Textarea from '../components/ui/Textarea';
@@ -27,12 +28,9 @@ interface FormData {
   images: File[];
 }
 const AddProductPage: React.FC = () => {
-  const {
-    theme
-  } = useTheme();
-  const {
-    isAuthenticated
-  } = useAuth();
+  const { theme } = useTheme();
+  const { isAuthenticated, user } = useAuth();
+  const { addListing } = useListings();
   const navigate = useNavigate();
   const [formData, setFormData] = useState<FormData>({
     title: '',
@@ -54,7 +52,24 @@ const AddProductPage: React.FC = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [formProgress, setFormProgress] = useState(0);
   const conditions = ['New', 'Like New', 'Used'];
+
+  // Calculate form progress
+  const calculateProgress = () => {
+    const requiredFields = ['title', 'category', 'description', 'price', 'quantity', 'condition'];
+    const filledFields = requiredFields.filter(field => {
+      const value = formData[field as keyof FormData];
+      return value && value.toString().trim() !== '';
+    });
+    return Math.round((filledFields.length / requiredFields.length) * 100);
+  };
+
+  // Update progress when form data changes
+  useEffect(() => {
+    setFormProgress(calculateProgress());
+  }, [formData]);
+
   // Redirect if not authenticated
   useEffect(() => {
     if (!isAuthenticated) {
@@ -79,6 +94,28 @@ const AddProductPage: React.FC = () => {
         delete newErrors[name];
         return newErrors;
       });
+    }
+    
+    // Real-time validation for price
+    if (name === 'price' && value) {
+      const numValue = parseFloat(value);
+      if (isNaN(numValue) || numValue <= 0) {
+        setErrors(prev => ({
+          ...prev,
+          price: 'Price must be a positive number'
+        }));
+      }
+    }
+    
+    // Real-time validation for quantity
+    if (name === 'quantity' && value) {
+      const numValue = parseInt(value);
+      if (isNaN(numValue) || numValue <= 0) {
+        setErrors(prev => ({
+          ...prev,
+          quantity: 'Quantity must be a positive number'
+        }));
+      }
     }
   };
   const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -143,10 +180,43 @@ const AddProductPage: React.FC = () => {
     }
     setIsSubmitting(true);
     try {
-      // In a real app, this would be an API call to create the product
-      console.log('Submitting product:', formData);
-      // Simulate API call
+      // Create a new product object
+      const newProduct = {
+        id: `product_${Date.now()}`, // Generate unique ID
+        title: formData.title,
+        description: formData.description,
+        price: parseFloat(formData.price),
+        category: formData.category,
+        condition: formData.condition,
+        imageUrl: formData.images.length > 0 
+          ? URL.createObjectURL(formData.images[0]) 
+          : 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80', // Default image
+        seller: {
+          id: user?.id || 'current_user',
+          name: user?.name || 'Current User',
+          rating: 4.8,
+          isVerified: true
+        },
+        year: formData.year ? parseInt(formData.year) : undefined,
+        brand: formData.brand || undefined,
+        dimensions: formData.dimensions || undefined,
+        weight: formData.weight || undefined,
+        material: formData.material || undefined,
+        hasWarranty: formData.hasWarranty,
+        hasManual: formData.hasManual,
+        quantity: parseInt(formData.quantity),
+        isEcoFriendly: formData.isEcoFriendly,
+        sustainabilityScore: formData.isEcoFriendly ? Math.floor(Math.random() * 20) + 80 : Math.floor(Math.random() * 30) + 60
+      };
+
+      // Add the product to listings
+      addListing(newProduct);
+      
+      console.log('Product added successfully:', newProduct);
+      
+      // Simulate API call delay
       await new Promise(resolve => setTimeout(resolve, 1000));
+      
       setShowSuccess(true);
       setTimeout(() => {
         navigate('/listings');
@@ -168,6 +238,27 @@ const AddProductPage: React.FC = () => {
             Fill out the details below to add your sustainable item to the
             marketplace.
           </p>
+          
+          {/* Progress Bar */}
+          <div className="mt-6">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Form Progress
+              </span>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {formProgress}%
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+              <div 
+                className="bg-green-600 h-2 rounded-full transition-all duration-300 ease-in-out"
+                style={{ width: `${formProgress}%` }}
+              ></div>
+            </div>
+            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              {formProgress === 100 ? 'Ready to submit!' : 'Complete all required fields to continue'}
+            </p>
+          </div>
         </div>
         {showSuccess ? <div className={`rounded-lg p-6 text-center ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-md`}>
             <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 dark:bg-green-900">
@@ -215,7 +306,24 @@ const AddProductPage: React.FC = () => {
                 }));
               }} fullWidth required />
                 </div>
-                <Textarea id="description" name="description" label="Description*" placeholder="Describe your item, including any defects or special features" value={formData.description} onChange={handleChange} error={errors.description} fullWidth required />
+                <div>
+                  <Textarea 
+                    id="description" 
+                    name="description" 
+                    label="Description*" 
+                    placeholder="Describe your item, including any defects or special features" 
+                    value={formData.description} 
+                    onChange={handleChange} 
+                    error={errors.description} 
+                    fullWidth 
+                    required 
+                  />
+                  <div className="mt-1 text-right">
+                    <span className={`text-xs ${formData.description.length > 500 ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'}`}>
+                      {formData.description.length}/1000 characters
+                    </span>
+                  </div>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Input id="price" name="price" type="number" label="Price ($)*" placeholder="0.00" min="0.01" step="0.01" value={formData.price} onChange={handleChange} error={errors.price} fullWidth required />
                   <Input id="quantity" name="quantity" type="number" label="Quantity*" placeholder="1" min="1" value={formData.quantity} onChange={handleChange} error={errors.quantity} fullWidth required />
@@ -245,17 +353,45 @@ const AddProductPage: React.FC = () => {
               <h2 className="text-lg font-medium mb-4">Product Images</h2>
               <div className="space-y-4">
                 {/* Image Preview */}
-                {formData.images.length > 0 && <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-4">
-                    {formData.images.map((image, index) => <div key={index} className="relative aspect-square rounded-lg overflow-hidden border dark:border-gray-700">
-                        <img src={URL.createObjectURL(image)} alt={`Product image ${index + 1}`} className="w-full h-full object-cover" />
-                        <button type="button" onClick={() => handleRemoveImage(index)} className="absolute top-1 right-1 bg-black/50 rounded-full p-1 text-white" aria-label="Remove image">
-                          <XIcon className="h-4 w-4" />
-                        </button>
-                      </div>)}
-                  </div>}
+                {formData.images.length > 0 && (
+                  <div className="mb-4">
+                    <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                      Uploaded Images ({formData.images.length})
+                    </h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                      {formData.images.map((image, index) => (
+                        <div key={index} className="relative aspect-square rounded-lg overflow-hidden border dark:border-gray-700 group">
+                          <img 
+                            src={URL.createObjectURL(image)} 
+                            alt={`Product image ${index + 1}`} 
+                            className="w-full h-full object-cover transition-transform group-hover:scale-105" 
+                          />
+                          <button 
+                            type="button" 
+                            onClick={() => handleRemoveImage(index)} 
+                            className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 rounded-full p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity" 
+                            aria-label="Remove image"
+                          >
+                            <XIcon className="h-4 w-4" />
+                          </button>
+                          <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {image.name}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {/* Image Upload */}
                 <div className="mt-2">
-                  <label htmlFor="image-upload" className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer ${theme === 'dark' ? 'border-gray-600 hover:border-gray-500 bg-gray-700 hover:bg-gray-600' : 'border-gray-300 hover:border-gray-400 bg-gray-50 hover:bg-gray-100'}`}>
+                  <label 
+                    htmlFor="image-upload" 
+                    className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer transition-all duration-200 ${
+                      theme === 'dark' 
+                        ? 'border-gray-600 hover:border-green-500 bg-gray-700 hover:bg-gray-600' 
+                        : 'border-gray-300 hover:border-green-500 bg-gray-50 hover:bg-gray-100'
+                    }`}
+                  >
                     <div className="flex flex-col items-center justify-center pt-5 pb-6">
                       <UploadIcon className="w-8 h-8 mb-3 text-gray-500 dark:text-gray-400" />
                       <p className="mb-2 text-sm text-gray-500 dark:text-gray-400">
@@ -263,21 +399,58 @@ const AddProductPage: React.FC = () => {
                         or drag and drop
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        PNG, JPG, GIF up to 10MB
+                        PNG, JPG, GIF up to 10MB each
                       </p>
+                      {formData.images.length > 0 && (
+                        <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                          {formData.images.length} image(s) uploaded
+                        </p>
+                      )}
                     </div>
-                    <input id="image-upload" type="file" className="hidden" accept="image/*" multiple onChange={handleImageUpload} />
+                    <input 
+                      id="image-upload" 
+                      type="file" 
+                      className="hidden" 
+                      accept="image/*" 
+                      multiple 
+                      onChange={handleImageUpload} 
+                    />
                   </label>
                 </div>
               </div>
             </div>
-            <div className="flex justify-end pt-4">
-              <Button type="button" variant="outline" className="mr-4" onClick={() => navigate(-1)}>
-                Cancel
-              </Button>
-              <Button type="submit" variant="primary" disabled={isSubmitting}>
-                {isSubmitting ? 'Adding Product...' : 'Add Product'}
-              </Button>
+            <div className="flex justify-between items-center pt-4">
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                {formProgress === 100 ? (
+                  <span className="text-green-600 dark:text-green-400 font-medium">
+                    ✓ All required fields completed
+                  </span>
+                ) : (
+                  <span>
+                    {6 - Math.round((formProgress / 100) * 6)} required fields remaining
+                  </span>
+                )}
+              </div>
+              <div className="flex space-x-4">
+                <Button type="button" variant="outline" onClick={() => navigate(-1)}>
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  variant="primary" 
+                  disabled={isSubmitting || formProgress < 100}
+                  className="min-w-[120px]"
+                >
+                  {isSubmitting ? (
+                    <div className="flex items-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Adding...
+                    </div>
+                  ) : (
+                    'Add Product'
+                  )}
+                </Button>
+              </div>
             </div>
           </form>}
       </div>

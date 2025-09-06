@@ -2,23 +2,20 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
-import { myListings } from '../data/dummyData';
+import { useListings } from '../context/ListingsContext';
 import Button from '../components/ui/Button';
 import { PencilIcon, TrashIcon, EyeIcon, PlusIcon, FilterIcon, SlidersIcon } from 'lucide-react';
 import Select from '../components/ui/Select';
 const MyListingsPage: React.FC = () => {
-  const {
-    theme
-  } = useTheme();
-  const {
-    isAuthenticated
-  } = useAuth();
+  const { theme } = useTheme();
+  const { isAuthenticated } = useAuth();
+  const { listings, deleteListing } = useListings();
   const [categoryFilter, setCategoryFilter] = useState('All Categories');
   const [sortOption, setSortOption] = useState('newest');
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedListing, setSelectedListing] = useState<string | null>(null);
-  const categories = ['All Categories', ...Array.from(new Set(myListings.map(p => p.category)))];
+  const categories = ['All Categories', ...Array.from(new Set(listings.map(p => p.category)))];
   const sortOptions = [{
     value: 'newest',
     label: 'Newest First'
@@ -33,7 +30,7 @@ const MyListingsPage: React.FC = () => {
     label: 'Price: High to Low'
   }];
   // Filter and sort listings
-  const filteredListings = myListings.filter(listing => categoryFilter === 'All Categories' || listing.category === categoryFilter).sort((a, b) => {
+  const filteredListings = listings.filter(listing => categoryFilter === 'All Categories' || listing.category === categoryFilter).sort((a, b) => {
     switch (sortOption) {
       case 'price-low':
         return a.price - b.price;
@@ -51,8 +48,10 @@ const MyListingsPage: React.FC = () => {
     setDeleteModalOpen(true);
   };
   const handleDeleteConfirm = () => {
-    // In a real app, this would delete the listing via API
-    console.log('Deleting listing:', selectedListing);
+    if (selectedListing) {
+      deleteListing(selectedListing);
+      console.log('Listing deleted:', selectedListing);
+    }
     setDeleteModalOpen(false);
     setSelectedListing(null);
   };
