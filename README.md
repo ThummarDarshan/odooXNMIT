@@ -1,9 +1,11 @@
 [# odooXNMIT]
 
 <h2>🧵 PROBLEM STATEMENT - 1 </h2> <br>
-
+Project Document: "EcoFinds - Sustainable Second-Hand
+Marketplace"
 
 <h2>📝 Overview </h2>  
+EcoFinds is a sustainable second-hand marketplace prototype that allows users to register/login, create and manage product listings, and browse items with search and filters.
 
 <h2>Team Details</h2>
 
@@ -38,4 +40,4 @@
     <td>7016036497</td>
     <td>dhruvinvaghasiya297@gmail.com</td>
   </tr>
-</table>)
+</table>
