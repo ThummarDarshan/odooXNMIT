@@ -4,7 +4,7 @@
 Project Document: "EcoFinds - Sustainable Second-Hand
 Marketplace"
 
-<h2>📝 Overview </h2>  
+<h2>📝 Overview </h2>  <br>
 EcoFinds is a sustainable second-hand marketplace prototype that allows users to register/login, create and manage product listings, and browse items with search and filters.
 
 <h2>Team Details</h2>
