@@ -24,9 +24,6 @@ const UserProfilePage: React.FC = () => {
   const [formData, setFormData] = useState({
     displayName: '',
     email: '',
-    phone: '',
-    location: '',
-    bio: '',
     profileImage: ''
   });
 
@@ -35,11 +32,8 @@ const UserProfilePage: React.FC = () => {
     id: user.id,
     name: user.displayName,
     email: user.email,
-    phone: user.phone || '+91 98765 43210',
-    location: user.location || 'Mumbai, Maharashtra',
     joinDate: 'January 2024',
     profileImage: user.profileImage,
-    bio: user.bio || 'Eco-conscious shopper passionate about sustainable living and reducing waste.',
     stats: {
       totalPurchases: 12,
       totalListings: listings.length,
@@ -50,11 +44,8 @@ const UserProfilePage: React.FC = () => {
     id: '1',
     name: 'John Doe',
     email: 'john.doe@example.com',
-    phone: '+91 98765 43210',
-    location: 'Mumbai, Maharashtra',
     joinDate: 'January 2024',
     profileImage: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=crop&w=150&q=80',
-    bio: 'Eco-conscious shopper passionate about sustainable living and reducing waste.',
     stats: {
       totalPurchases: 12,
       totalListings: listings.length,
@@ -67,9 +58,6 @@ const UserProfilePage: React.FC = () => {
     setFormData({
       displayName: userData.name,
       email: userData.email,
-      phone: userData.phone,
-      location: userData.location,
-      bio: userData.bio,
       profileImage: userData.profileImage
     });
     setImagePreview(userData.profileImage);
@@ -97,21 +85,17 @@ const UserProfilePage: React.FC = () => {
       // Create preview URL
       const reader = new FileReader();
       reader.onload = (e) => {
-        setImagePreview(e.target?.result as string);
-        setFormData(prev => ({ ...prev, profileImage: e.target?.result as string }));
+        const imageUrl = e.target?.result as string;
+        setImagePreview(imageUrl);
+        setFormData(prev => ({ ...prev, profileImage: imageUrl }));
+        
+        // Update the main profile image immediately
+        setUserData(prev => ({ ...prev, profileImage: imageUrl }));
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleImageUrlChange = () => {
-    const newImageUrl = prompt('Enter image URL:');
-    if (newImageUrl && newImageUrl.trim()) {
-      setImagePreview(newImageUrl);
-      setFormData(prev => ({ ...prev, profileImage: newImageUrl }));
-      setImageFile(null);
-    }
-  };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -145,9 +129,6 @@ const UserProfilePage: React.FC = () => {
     updateProfile({
       displayName: formData.displayName,
       email: formData.email,
-      phone: formData.phone,
-      location: formData.location,
-      bio: formData.bio,
       profileImage: formData.profileImage
     });
     setEditModalOpen(false);
@@ -160,17 +141,10 @@ const UserProfilePage: React.FC = () => {
     setFormData({
       displayName: '',
       email: '',
-      phone: '',
-      location: '',
-      bio: '',
       profileImage: ''
     });
   };
 
-  const handleChangePhoto = () => {
-    // Handle photo change
-    console.log('Change photo clicked');
-  };
 
   const handleDeleteClick = (id: string) => {
     setSelectedListing(id);
@@ -191,25 +165,19 @@ const UserProfilePage: React.FC = () => {
   };
 
   return (
-    <div className={`min-h-screen ${theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
+    <div className={`min-h-screen ${theme === 'dark' ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white' : 'bg-white text-gray-900'}`}>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Profile Header */}
-        <div className={`rounded-lg ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-md border border-gray-200 dark:border-gray-700 mb-8`}>
-          <div className="bg-gray-50 dark:bg-gray-700 h-32"></div>
+        <div className={`rounded-xl ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-xl border border-gray-200 dark:border-gray-700 mb-8 overflow-hidden`}>
+          <div className={`h-32 ${theme === 'dark' ? 'bg-gradient-to-r from-gray-800 via-gray-700 to-gray-800' : 'bg-white'}`}></div>
           <div className="px-6 pb-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-end -mt-16">
               <div className="relative">
                 <img
                   src={userData.profileImage}
                   alt={userData.name}
-                  className="w-32 h-32 rounded-full border-4 border-white dark:border-gray-800 object-cover"
+                  className="w-32 h-32 rounded-full border-4 border-white dark:border-gray-800 object-cover shadow-lg"
                 />
-                <button
-                  onClick={handleChangePhoto}
-                  className="absolute bottom-2 right-2 bg-gray-600 hover:bg-gray-700 text-white p-2 rounded-full shadow-md transition-colors"
-                >
-                  <Camera className="h-4 w-4" />
-                </button>
               </div>
               <div className="sm:ml-6 mt-4 sm:mt-0 flex-1">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
@@ -234,10 +202,10 @@ const UserProfilePage: React.FC = () => {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className={`rounded-lg ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-md border border-gray-200 dark:border-gray-700 p-6`}>
+          <div className={`rounded-xl ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-lg border border-gray-200 dark:border-gray-700 p-6 hover:shadow-xl transition-shadow duration-300`}>
             <div className="flex items-center">
-              <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-full">
-                <ShoppingBag className="h-6 w-6 text-gray-600 dark:text-gray-400" />
+              <div className="p-3 bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900 dark:to-indigo-900 rounded-full">
+                <ShoppingBag className="h-6 w-6 text-blue-600 dark:text-blue-400" />
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Purchases</p>
@@ -246,10 +214,10 @@ const UserProfilePage: React.FC = () => {
             </div>
           </div>
           
-          <div className={`rounded-lg ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-md border border-gray-200 dark:border-gray-700 p-6`}>
+          <div className={`rounded-xl ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-lg border border-gray-200 dark:border-gray-700 p-6 hover:shadow-xl transition-shadow duration-300`}>
             <div className="flex items-center">
-              <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-full">
-                <Package className="h-6 w-6 text-gray-600 dark:text-gray-400" />
+              <div className="p-3 bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900 dark:to-emerald-900 rounded-full">
+                <Package className="h-6 w-6 text-green-600 dark:text-green-400" />
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Listings</p>
@@ -258,10 +226,10 @@ const UserProfilePage: React.FC = () => {
             </div>
           </div>
           
-          <div className={`rounded-lg ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-md border border-gray-200 dark:border-gray-700 p-6`}>
+          <div className={`rounded-xl ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-lg border border-gray-200 dark:border-gray-700 p-6 hover:shadow-xl transition-shadow duration-300`}>
             <div className="flex items-center">
-              <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-full">
-                <Heart className="h-6 w-6 text-gray-600 dark:text-gray-400" />
+              <div className="p-3 bg-gradient-to-br from-pink-100 to-rose-100 dark:from-pink-900 dark:to-rose-900 rounded-full">
+                <Heart className="h-6 w-6 text-pink-600 dark:text-pink-400" />
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Wishlist</p>
@@ -270,10 +238,10 @@ const UserProfilePage: React.FC = () => {
             </div>
           </div>
           
-          <div className={`rounded-lg ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-md border border-gray-200 dark:border-gray-700 p-6`}>
+          <div className={`rounded-xl ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-lg border border-gray-200 dark:border-gray-700 p-6 hover:shadow-xl transition-shadow duration-300`}>
             <div className="flex items-center">
-              <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-full">
-                <User className="h-6 w-6 text-gray-600 dark:text-gray-400" />
+              <div className="p-3 bg-gradient-to-br from-purple-100 to-violet-100 dark:from-purple-900 dark:to-violet-900 rounded-full">
+                <User className="h-6 w-6 text-purple-600 dark:text-purple-400" />
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Rating</p>
@@ -284,7 +252,7 @@ const UserProfilePage: React.FC = () => {
         </div>
 
         {/* Navigation Tabs */}
-        <div className={`rounded-lg ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-md border border-gray-200 dark:border-gray-700 mb-8`}>
+        <div className={`rounded-xl ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-lg border border-gray-200 dark:border-gray-700 mb-8`}>
           <div className="border-b border-gray-200 dark:border-gray-700">
             <nav className="flex space-x-8 px-6">
               <button
@@ -322,7 +290,7 @@ const UserProfilePage: React.FC = () => {
         </div>
 
         {/* Tab Content */}
-        <div className={`rounded-lg ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-md border border-gray-200 dark:border-gray-700 p-6`}>
+        <div className={`rounded-xl ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-lg border border-gray-200 dark:border-gray-700 p-6`}>
           {activeTab === 'overview' && (
             <div>
               <h2 className="text-xl font-bold mb-6">Profile Information</h2>
@@ -338,19 +306,7 @@ const UserProfilePage: React.FC = () => {
                       <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Email</label>
                       <p className="text-gray-900 dark:text-white">{userData.email}</p>
                     </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Phone</label>
-                      <p className="text-gray-900 dark:text-white">{userData.phone}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Location</label>
-                      <p className="text-gray-900 dark:text-white">{userData.location}</p>
-                    </div>
                   </div>
-                </div>
-                <div>
-                  <h3 className="text-lg font-medium mb-4">Bio</h3>
-                  <p className="text-gray-700 dark:text-gray-300">{userData.bio}</p>
                 </div>
               </div>
             </div>
@@ -591,17 +547,10 @@ const UserProfilePage: React.FC = () => {
                         alt="Profile"
                         className="w-20 h-20 rounded-full object-cover border-2 border-gray-200 dark:border-gray-600"
                       />
-                      <button
-                        onClick={handleImageUrlChange}
-                        className="absolute bottom-0 right-0 bg-gray-600 hover:bg-gray-700 text-white p-1.5 rounded-full shadow-md transition-colors"
-                        title="Change image URL"
-                      >
-                        <Camera className="h-3 w-3" />
-                      </button>
                     </div>
                     <div>
                       <p className="text-sm font-medium">Profile Picture</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Click camera icon for URL or upload below</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Click camera icon to upload image</p>
                     </div>
                   </div>
 
@@ -672,31 +621,6 @@ const UserProfilePage: React.FC = () => {
                     value={formData.email}
                     onChange={handleInputChange}
                     placeholder="Enter your email"
-                  />
-                  <Input
-                    label="Phone"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleInputChange}
-                    placeholder="Enter your phone number"
-                  />
-                  <Input
-                    label="Location"
-                    name="location"
-                    value={formData.location}
-                    onChange={handleInputChange}
-                    placeholder="Enter your location"
-                  />
-                </div>
-                
-                <div>
-                  <Textarea
-                    label="Bio"
-                    name="bio"
-                    value={formData.bio}
-                    onChange={handleInputChange}
-                    placeholder="Tell us about yourself..."
-                    rows={4}
                   />
                 </div>
               </div>
