@@ -4,20 +4,49 @@ import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useListings } from '../context/ListingsContext';
 import Button from '../components/ui/Button';
-import { User, ShoppingBag, Package, Heart, Settings, Edit3, Camera, CalendarIcon, EyeIcon, PencilIcon, TrashIcon } from 'lucide-react';
+import Input from '../components/ui/Input';
+import Textarea from '../components/ui/Textarea';
+import { User, ShoppingBag, Package, Heart, Edit3, Camera, CalendarIcon, EyeIcon, PencilIcon, TrashIcon, XIcon, SaveIcon } from 'lucide-react';
 import { purchases } from '../data/dummyData';
 
 const UserProfilePage: React.FC = () => {
   const { theme } = useTheme();
-  const { user } = useAuth();
+  const { user, updateProfile } = useAuth();
   const { listings, deleteListing } = useListings();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'overview' | 'purchases' | 'listings'>('overview');
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedListing, setSelectedListing] = useState<string | null>(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string>('');
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [formData, setFormData] = useState({
+    displayName: '',
+    email: '',
+    phone: '',
+    location: '',
+    bio: '',
+    profileImage: ''
+  });
 
-  // Mock user data - in a real app, this would come from the auth context or API
-  const userData = {
+  // Use actual user data from auth context, with fallback for demo
+  const userData = user ? {
+    id: user.id,
+    name: user.displayName,
+    email: user.email,
+    phone: user.phone || '+91 98765 43210',
+    location: user.location || 'Mumbai, Maharashtra',
+    joinDate: 'January 2024',
+    profileImage: user.profileImage,
+    bio: user.bio || 'Eco-conscious shopper passionate about sustainable living and reducing waste.',
+    stats: {
+      totalPurchases: 12,
+      totalListings: listings.length,
+      wishlistItems: 15,
+      rating: 4.8
+    }
+  } : {
     id: '1',
     name: 'John Doe',
     email: 'john.doe@example.com',
@@ -35,8 +64,107 @@ const UserProfilePage: React.FC = () => {
   };
 
   const handleEditProfile = () => {
-    // Navigate to edit profile page or open modal
-    console.log('Edit profile clicked');
+    setFormData({
+      displayName: userData.name,
+      email: userData.email,
+      phone: userData.phone,
+      location: userData.location,
+      bio: userData.bio,
+      profileImage: userData.profileImage
+    });
+    setImagePreview(userData.profileImage);
+    setImageFile(null);
+    setEditModalOpen(true);
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert('Please select a valid image file');
+        return;
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Image size should be less than 5MB');
+        return;
+      }
+      
+      setImageFile(file);
+      
+      // Create preview URL
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target?.result as string);
+        setFormData(prev => ({ ...prev, profileImage: e.target?.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleImageUrlChange = () => {
+    const newImageUrl = prompt('Enter image URL:');
+    if (newImageUrl && newImageUrl.trim()) {
+      setImagePreview(newImageUrl);
+      setFormData(prev => ({ ...prev, profileImage: newImageUrl }));
+      setImageFile(null);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      const file = files[0];
+      if (file.type.startsWith('image/')) {
+        handleImageUpload({ target: { files: [file] } } as any);
+      } else {
+        alert('Please drop a valid image file');
+      }
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSaveProfile = () => {
+    updateProfile({
+      displayName: formData.displayName,
+      email: formData.email,
+      phone: formData.phone,
+      location: formData.location,
+      bio: formData.bio,
+      profileImage: formData.profileImage
+    });
+    setEditModalOpen(false);
+  };
+
+  const handleCancelEdit = () => {
+    setEditModalOpen(false);
+    setImagePreview('');
+    setImageFile(null);
+    setFormData({
+      displayName: '',
+      email: '',
+      phone: '',
+      location: '',
+      bio: '',
+      profileImage: ''
+    });
   };
 
   const handleChangePhoto = () => {
@@ -66,8 +194,8 @@ const UserProfilePage: React.FC = () => {
     <div className={`min-h-screen ${theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Profile Header */}
-        <div className={`rounded-lg ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-md overflow-hidden mb-8`}>
-          <div className="bg-gradient-to-r from-green-500 to-green-600 h-32"></div>
+        <div className={`rounded-lg ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-md border border-gray-200 dark:border-gray-700 mb-8`}>
+          <div className="bg-gray-50 dark:bg-gray-700 h-32"></div>
           <div className="px-6 pb-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-end -mt-16">
               <div className="relative">
@@ -78,7 +206,7 @@ const UserProfilePage: React.FC = () => {
                 />
                 <button
                   onClick={handleChangePhoto}
-                  className="absolute bottom-2 right-2 bg-green-500 hover:bg-green-600 text-white p-2 rounded-full shadow-md transition-colors"
+                  className="absolute bottom-2 right-2 bg-gray-600 hover:bg-gray-700 text-white p-2 rounded-full shadow-md transition-colors"
                 >
                   <Camera className="h-4 w-4" />
                 </button>
@@ -106,10 +234,10 @@ const UserProfilePage: React.FC = () => {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className={`rounded-lg ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-md p-6`}>
+          <div className={`rounded-lg ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-md border border-gray-200 dark:border-gray-700 p-6`}>
             <div className="flex items-center">
-              <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-full">
-                <ShoppingBag className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-full">
+                <ShoppingBag className="h-6 w-6 text-gray-600 dark:text-gray-400" />
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Purchases</p>
@@ -118,10 +246,10 @@ const UserProfilePage: React.FC = () => {
             </div>
           </div>
           
-          <div className={`rounded-lg ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-md p-6`}>
+          <div className={`rounded-lg ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-md border border-gray-200 dark:border-gray-700 p-6`}>
             <div className="flex items-center">
-              <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-full">
-                <Package className="h-6 w-6 text-green-600 dark:text-green-400" />
+              <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-full">
+                <Package className="h-6 w-6 text-gray-600 dark:text-gray-400" />
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Listings</p>
@@ -130,10 +258,10 @@ const UserProfilePage: React.FC = () => {
             </div>
           </div>
           
-          <div className={`rounded-lg ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-md p-6`}>
+          <div className={`rounded-lg ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-md border border-gray-200 dark:border-gray-700 p-6`}>
             <div className="flex items-center">
-              <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded-full">
-                <Heart className="h-6 w-6 text-red-600 dark:text-red-400" />
+              <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-full">
+                <Heart className="h-6 w-6 text-gray-600 dark:text-gray-400" />
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Wishlist</p>
@@ -142,10 +270,10 @@ const UserProfilePage: React.FC = () => {
             </div>
           </div>
           
-          <div className={`rounded-lg ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-md p-6`}>
+          <div className={`rounded-lg ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-md border border-gray-200 dark:border-gray-700 p-6`}>
             <div className="flex items-center">
-              <div className="p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-full">
-                <User className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
+              <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-full">
+                <User className="h-6 w-6 text-gray-600 dark:text-gray-400" />
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Rating</p>
@@ -156,14 +284,14 @@ const UserProfilePage: React.FC = () => {
         </div>
 
         {/* Navigation Tabs */}
-        <div className={`rounded-lg ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-md mb-8`}>
+        <div className={`rounded-lg ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-md border border-gray-200 dark:border-gray-700 mb-8`}>
           <div className="border-b border-gray-200 dark:border-gray-700">
             <nav className="flex space-x-8 px-6">
               <button
                 onClick={() => setActiveTab('overview')}
                 className={`py-4 px-1 border-b-2 font-medium text-sm ${
                   activeTab === 'overview'
-                    ? 'border-green-500 text-green-600 dark:text-green-400'
+                    ? 'border-gray-600 text-gray-900 dark:text-white'
                     : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                 }`}
               >
@@ -173,7 +301,7 @@ const UserProfilePage: React.FC = () => {
                 onClick={() => setActiveTab('purchases')}
                 className={`py-4 px-1 border-b-2 font-medium text-sm ${
                   activeTab === 'purchases'
-                    ? 'border-green-500 text-green-600 dark:text-green-400'
+                    ? 'border-gray-600 text-gray-900 dark:text-white'
                     : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                 }`}
               >
@@ -183,7 +311,7 @@ const UserProfilePage: React.FC = () => {
                 onClick={() => setActiveTab('listings')}
                 className={`py-4 px-1 border-b-2 font-medium text-sm ${
                   activeTab === 'listings'
-                    ? 'border-green-500 text-green-600 dark:text-green-400'
+                    ? 'border-gray-600 text-gray-900 dark:text-white'
                     : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                 }`}
               >
@@ -194,7 +322,7 @@ const UserProfilePage: React.FC = () => {
         </div>
 
         {/* Tab Content */}
-        <div className={`rounded-lg ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-md p-6`}>
+        <div className={`rounded-lg ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-md border border-gray-200 dark:border-gray-700 p-6`}>
           {activeTab === 'overview' && (
             <div>
               <h2 className="text-xl font-bold mb-6">Profile Information</h2>
@@ -256,7 +384,7 @@ const UserProfilePage: React.FC = () => {
                               <h3 className="text-lg font-medium">
                                 <Link 
                                   to={`/product/${purchase.product.id}`} 
-                                  className="hover:text-green-600 dark:hover:text-green-400"
+                                  className="hover:text-gray-700 dark:hover:text-gray-300"
                                 >
                                   {purchase.product.title}
                                 </Link>
@@ -269,8 +397,8 @@ const UserProfilePage: React.FC = () => {
                               </p>
                             </div>
                             <div className="mt-2 md:mt-0 md:text-right">
-                              <p className="text-lg font-medium text-green-600 dark:text-green-400">
-                                ${purchase.product.price.toFixed(2)}
+                              <p className="text-lg font-medium text-gray-900 dark:text-white">
+                                ₹{purchase.product.price.toFixed(2)}
                               </p>
                               <p className="text-sm text-gray-500 dark:text-gray-400">
                                 Quantity: {purchase.quantity}
@@ -352,7 +480,7 @@ const UserProfilePage: React.FC = () => {
                               <h3 className="text-lg font-medium">
                                 <Link 
                                   to={`/product/${listing.id}`} 
-                                  className="hover:text-green-600 dark:hover:text-green-400"
+                                  className="hover:text-gray-700 dark:hover:text-gray-300"
                                 >
                                   {listing.title}
                                 </Link>
@@ -365,8 +493,8 @@ const UserProfilePage: React.FC = () => {
                               </p>
                             </div>
                             <div className="mt-2 md:mt-0 md:text-right">
-                              <p className="text-lg font-medium text-green-600 dark:text-green-400">
-                                ${listing.price.toFixed(2)}
+                              <p className="text-lg font-medium text-gray-900 dark:text-white">
+                                ₹{listing.price.toFixed(2)}
                               </p>
                               <p className="text-sm text-gray-500 dark:text-gray-400">
                                 Quantity: {listing.quantity}
@@ -433,6 +561,160 @@ const UserProfilePage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Edit Profile Modal */}
+      {editModalOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4">
+            <div 
+              className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" 
+              onClick={handleCancelEdit}
+            ></div>
+            <div className={`relative rounded-lg max-w-2xl w-full ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-xl p-6`}>
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-medium">Edit Profile</h3>
+                <button
+                  onClick={handleCancelEdit}
+                  className={`p-2 rounded-full ${theme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
+                >
+                  <XIcon className="h-5 w-5" />
+                </button>
+              </div>
+              
+              <div className="space-y-6">
+                {/* Profile Image */}
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-4">
+                    <div className="relative">
+                      <img
+                        src={imagePreview || formData.profileImage}
+                        alt="Profile"
+                        className="w-20 h-20 rounded-full object-cover border-2 border-gray-200 dark:border-gray-600"
+                      />
+                      <button
+                        onClick={handleImageUrlChange}
+                        className="absolute bottom-0 right-0 bg-gray-600 hover:bg-gray-700 text-white p-1.5 rounded-full shadow-md transition-colors"
+                        title="Change image URL"
+                      >
+                        <Camera className="h-3 w-3" />
+                      </button>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">Profile Picture</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Click camera icon for URL or upload below</p>
+                    </div>
+                  </div>
+
+                  {/* Upload Options */}
+                  <div className="space-y-3">
+                    {/* File Upload */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Upload Image
+                      </label>
+                      <div
+                        className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors ${
+                          theme === 'dark' 
+                            ? 'border-gray-600 hover:border-gray-500 bg-gray-700/50' 
+                            : 'border-gray-300 hover:border-gray-400 bg-gray-50'
+                        }`}
+                        onDragOver={handleDragOver}
+                        onDrop={handleDrop}
+                      >
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                          className="hidden"
+                          id="image-upload"
+                        />
+                        <label
+                          htmlFor="image-upload"
+                          className="cursor-pointer flex flex-col items-center space-y-2"
+                        >
+                          <Camera className="h-8 w-8 text-gray-400" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                              Click to upload or drag and drop
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-500">
+                              PNG, JPG, GIF up to 5MB
+                            </p>
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Current Image Info */}
+                    {imageFile && (
+                      <div className={`p-3 rounded-md ${theme === 'dark' ? 'bg-green-900/20 border border-green-800' : 'bg-green-50 border border-green-200'}`}>
+                        <p className="text-sm text-green-700 dark:text-green-300">
+                          ✓ New image selected: {imageFile.name}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Form Fields */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    label="Full Name"
+                    name="displayName"
+                    value={formData.displayName}
+                    onChange={handleInputChange}
+                    placeholder="Enter your full name"
+                  />
+                  <Input
+                    label="Email"
+                    name="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    placeholder="Enter your email"
+                  />
+                  <Input
+                    label="Phone"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleInputChange}
+                    placeholder="Enter your phone number"
+                  />
+                  <Input
+                    label="Location"
+                    name="location"
+                    value={formData.location}
+                    onChange={handleInputChange}
+                    placeholder="Enter your location"
+                  />
+                </div>
+                
+                <div>
+                  <Textarea
+                    label="Bio"
+                    name="bio"
+                    value={formData.bio}
+                    onChange={handleInputChange}
+                    placeholder="Tell us about yourself..."
+                    rows={4}
+                  />
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end space-x-4 mt-8">
+                <Button variant="outline" onClick={handleCancelEdit}>
+                  Cancel
+                </Button>
+                <Button variant="primary" onClick={handleSaveProfile} className="flex items-center">
+                  <SaveIcon className="h-4 w-4 mr-2" />
+                  Save Changes
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       {deleteModalOpen && (

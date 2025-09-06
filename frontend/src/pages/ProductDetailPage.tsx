@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
+import { useListings } from '../context/ListingsContext';
 import { products } from '../data/dummyData';
 import { Product } from '../data/types';
 import Button from '../components/ui/Button';
@@ -26,21 +27,33 @@ const ProductDetailPage: React.FC = () => {
     removeFromWishlist,
     isInWishlist
   } = useWishlist();
+  const {
+    getListingById,
+    listings
+  } = useListings();
   const [product, setProduct] = useState<Product | null>(null);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
   useEffect(() => {
-    // Find the product by ID
-    const foundProduct = products.find(p => p.id === id);
+    // First try to find the product in the main products array
+    let foundProduct = products.find(p => p.id === id);
+    
+    // If not found in main products, check user listings
+    if (!foundProduct) {
+      foundProduct = getListingById(id || '');
+    }
+    
     if (foundProduct) {
       setProduct(foundProduct);
       // Find related products (same category, excluding current product)
-      const related = products.filter(p => p.category === foundProduct.category && p.id !== foundProduct.id).slice(0, 4);
+      // Check both main products and listings for related products
+      const allProducts = [...products, ...listings];
+      const related = allProducts.filter(p => p.category === foundProduct.category && p.id !== foundProduct.id).slice(0, 4);
       setRelatedProducts(related);
     } else {
       // Product not found
       navigate('/');
     }
-  }, [id, navigate]);
+  }, [id, navigate, getListingById, listings]);
   const handleAddToCart = () => {
     if (product) {
       addToCart(product);

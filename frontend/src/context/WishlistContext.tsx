@@ -23,6 +23,14 @@ export const WishlistProvider: React.FC<{
     if (savedWishlist) {
       setItems(JSON.parse(savedWishlist));
     }
+
+    // Listen for logout event
+    const handleLogout = () => {
+      setItems([]);
+    };
+
+    window.addEventListener('userLogout', handleLogout);
+    return () => window.removeEventListener('userLogout', handleLogout);
   }, []);
 
   useEffect(() => {
@@ -49,6 +57,7 @@ export const WishlistProvider: React.FC<{
 
   const clearWishlist = () => {
     setItems([]);
+    localStorage.removeItem('wishlist');
   };
 
   const totalItems = items.length;

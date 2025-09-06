@@ -129,7 +129,7 @@ const MyListingsPage: React.FC = () => {
                         </div>
                         <div className="mt-2 md:mt-0 md:text-right">
                           <p className="text-lg font-medium text-green-600">
-                            ${listing.price.toFixed(2)}
+                            ₹{listing.price.toFixed(2)}
                           </p>
                           <p className="text-sm text-gray-500 dark:text-gray-400">
                             Quantity: {listing.quantity}

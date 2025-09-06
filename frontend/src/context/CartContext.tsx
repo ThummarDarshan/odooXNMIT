@@ -27,6 +27,14 @@ export const CartProvider: React.FC<{
     if (savedCart) {
       setItems(JSON.parse(savedCart));
     }
+
+    // Listen for logout event
+    const handleLogout = () => {
+      setItems([]);
+    };
+
+    window.addEventListener('userLogout', handleLogout);
+    return () => window.removeEventListener('userLogout', handleLogout);
   }, []);
   useEffect(() => {
     // Save cart to localStorage whenever it changes
@@ -62,6 +70,7 @@ export const CartProvider: React.FC<{
   };
   const clearCart = () => {
     setItems([]);
+    localStorage.removeItem('cart');
   };
   const totalItems = items.reduce((total, item) => total + item.quantity, 0);
   const uniqueItems = items.length;

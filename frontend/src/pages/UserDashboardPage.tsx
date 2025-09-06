@@ -111,7 +111,7 @@ const UserDashboardPage: React.FC = () => {
                     Edit Profile
                   </Button>}
               </div>
-              {showSuccess && <div className="mb-6 p-4 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 rounded-md flex items-center">
+              {showSuccess && <div className="mb-6 p-4 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md flex items-center">
                   <CheckIcon className="h-5 w-5 mr-2" />
                   Profile updated successfully!
                 </div>}
@@ -119,7 +119,7 @@ const UserDashboardPage: React.FC = () => {
                   <div className="flex flex-col items-center mb-6">
                     <div className="relative">
                       <img src={profileImage || user.profileImage} alt={user.displayName} className="w-32 h-32 rounded-full object-cover" />
-                      <label htmlFor="profile-image" className="absolute bottom-0 right-0 bg-green-500 text-white p-2 rounded-full cursor-pointer">
+                      <label htmlFor="profile-image" className="absolute bottom-0 right-0 bg-gray-600 hover:bg-gray-700 text-white p-2 rounded-full cursor-pointer transition-colors">
                         <CameraIcon className="h-5 w-5" />
                       </label>
                       <input type="file" id="profile-image" className="hidden" accept="image/*" onChange={handleImageChange} />

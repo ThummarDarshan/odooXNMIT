@@ -4,6 +4,9 @@ interface User {
   displayName: string;
   email: string;
   profileImage: string;
+  phone?: string;
+  location?: string;
+  bio?: string;
 }
 interface AuthContextType {
   user: User | null;
@@ -11,6 +14,7 @@ interface AuthContextType {
   signup: (displayName: string, email: string, password: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
+  updateProfile: (profileData: Partial<User>) => void;
 }
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{
@@ -18,9 +22,17 @@ export const AuthProvider: React.FC<{
 }> = ({
   children
 }) => {
-  const [user, setUser] = useState<User | null>(null);
+  // Initialize user from localStorage immediately
+  const [user, setUser] = useState<User | null>(() => {
+    if (typeof window !== 'undefined') {
+      const savedUser = localStorage.getItem('user');
+      return savedUser ? JSON.parse(savedUser) : null;
+    }
+    return null;
+  });
+  
   useEffect(() => {
-    // Check for saved user in localStorage
+    // Check for saved user in localStorage on mount
     const savedUser = localStorage.getItem('user');
     if (savedUser) {
       setUser(JSON.parse(savedUser));
@@ -51,13 +63,27 @@ export const AuthProvider: React.FC<{
   const logout = () => {
     setUser(null);
     localStorage.removeItem('user');
+    localStorage.removeItem('cart');
+    localStorage.removeItem('wishlist');
+    
+    // Dispatch custom event to notify other contexts
+    window.dispatchEvent(new CustomEvent('userLogout'));
+  };
+
+  const updateProfile = (profileData: Partial<User>) => {
+    if (user) {
+      const updatedUser = { ...user, ...profileData };
+      setUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+    }
   };
   return <AuthContext.Provider value={{
     user,
     login,
     signup,
     logout,
-    isAuthenticated: !!user
+    isAuthenticated: !!user,
+    updateProfile
   }}>
       {children}
     </AuthContext.Provider>;

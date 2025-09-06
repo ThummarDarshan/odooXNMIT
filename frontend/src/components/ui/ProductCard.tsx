@@ -5,6 +5,7 @@ import { Product } from '../../data/types';
 import { useTheme } from '../../context/ThemeContext';
 import { useCart } from '../../context/CartContext';
 import { useWishlist } from '../../context/WishlistContext';
+import { useAuth } from '../../context/AuthContext';
 interface ProductCardProps {
   product: Product;
 }
@@ -17,12 +18,17 @@ const ProductCard: React.FC<ProductCardProps> = ({
   const navigate = useNavigate();
   const { addToCart } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
+  const { isAuthenticated } = useAuth();
   const [isHovered, setIsHovered] = useState(false);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [showAddedMessage, setShowAddedMessage] = useState(false);
   const handleWishlist = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
     if (isInWishlist(product.id)) {
       removeFromWishlist(product.id);
     } else {
@@ -30,11 +36,19 @@ const ProductCard: React.FC<ProductCardProps> = ({
     }
   };
   const navigateToProduct = () => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
     navigate(`/product/${product.id}`);
   };
 
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
     setIsAddingToCart(true);
     addToCart(product);
     
